@@ -1,0 +1,12 @@
+<%- include('../../partials/header', { title, active: 'jobs' }) %>
+<div class="card">
+  <p><strong>Type:</strong> <%= job.type %></p>
+  <p><strong>Status:</strong> <span class="badge <%= statusClass(job.status) %>"><%= job.status %></span></p>
+  <p><strong>Progress:</strong> <%= job.progress %>%</p>
+  <p><strong>Started:</strong> <%= formatDate(job.started_at) %></p>
+  <p><strong>Finished:</strong> <%= formatDate(job.finished_at) %></p>
+  <% if (job.error_text) { %><div class="alert error"><%= job.error_text %></div><% } %>
+  <% if (job.result) { %><pre class="message-body"><%= JSON.stringify(job.result, null, 2) %></pre><% } %>
+  <% if (job.output_path && job.status === 'completed') { %><a class="btn" href="/export/download/<%= job.id %>">Download Output</a><% } %>
+</div>
+<%- include('../../partials/footer') %>

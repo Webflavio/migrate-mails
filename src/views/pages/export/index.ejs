@@ -1,0 +1,44 @@
+<%- include('../../partials/header', { title, active: 'export' }) %>
+<% if (typeof queued !== 'undefined') {} %>
+<form class="card form-grid" method="post" action="/export" id="exportForm">
+  <label>Account<select name="accountId" id="accountSelect" required><option value="">Select account</option><% accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.label %></option><% }) %></select></label>
+  <label>Format<select name="format"><option value="eml-zip">EML ZIP</option><option value="mbox">MBOX</option></select></label>
+  <div id="folderList"></div>
+  <div class="btn-row"><button class="btn">Start Export Job</button></div>
+</form>
+<div class="card" style="margin-top:18px">
+  <h3>Recent Exports</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Status</th><th>Progress</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        <% if (!jobs.length) { %><tr><td colspan="5" class="empty">No export jobs yet.</td></tr><% } %>
+        <% jobs.forEach(function(job){ %>
+        <tr>
+          <td><%= job.id %></td>
+          <td><span class="badge <%= statusClass(job.status) %>"><%= job.status %></span></td>
+          <td><%= job.progress %>%</td>
+          <td><%= formatDate(job.created_at) %></td>
+          <td><% if (job.status === 'completed' && job.output_path) { %><a class="btn secondary" href="/export/download/<%= job.id %>">Download</a><% } %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+document.getElementById('accountSelect').addEventListener('change', async function() {
+  const id = this.value;
+  const box = document.getElementById('folderList');
+  box.innerHTML = '';
+  if (!id) return;
+  const res = await fetch('/export/folders/' + id);
+  const folders = await res.json();
+  folders.forEach(function(folder) {
+    const label = document.createElement('label');
+    label.innerHTML = '<input type="checkbox" name="folderIds" value="' + folder.id + '"> ' + folder.remote_name + ' (' + (folder.backed_up_count || 0) + ')';
+    box.appendChild(label);
+  });
+});
+</script>
+<%- include('../../partials/footer') %>

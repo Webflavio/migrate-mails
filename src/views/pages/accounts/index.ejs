@@ -1,0 +1,24 @@
+<%- include('../../partials/header', { title, active: 'accounts' }) %>
+<div class="btn-row"><a class="btn" href="/accounts/new">Add Account</a></div>
+<div class="card" style="margin-top:18px">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Label</th><th>Host</th><th>Username</th><th>Status</th><th>Messages</th><th>Last Backup</th><th></th></tr></thead>
+      <tbody>
+        <% if (!accounts.length) { %><tr><td colspan="7" class="empty">No accounts configured.</td></tr><% } %>
+        <% accounts.forEach(function(account) { %>
+        <tr>
+          <td><%= account.label %></td>
+          <td><%= account.imap_host %>:<%= account.imap_port %></td>
+          <td><%= account.username %></td>
+          <td><span class="badge <%= statusClass(account.status) %>"><%= account.status %></span></td>
+          <td><%= account.message_count || 0 %></td>
+          <td><%= formatDate(account.last_backup_at) %></td>
+          <td><a class="btn secondary" href="/accounts/<%= account.id %>">Manage</a></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../../partials/footer') %>

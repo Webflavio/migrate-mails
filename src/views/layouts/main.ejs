@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> · MailVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/public/css/app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MV</div>
+        <div>
+          <strong>MailVault</strong>
+          <span>Email Backup Manager</span>
+        </div>
+      </div>
+      <nav>
+        <a href="/" class="<%= title === 'Dashboard' ? 'active' : '' %>">Dashboard</a>
+        <a href="/accounts" class="<%= title === 'Accounts' || title === 'Add Account' || title === 'Edit Account' ? 'active' : '' %>">Accounts</a>
+        <a href="/backups" class="<%= title === 'Backups' ? 'active' : '' %>">Backups</a>
+        <a href="/browse" class="<%= title === 'Browse' ? 'active' : '' %>">Browse</a>
+        <a href="/export" class="<%= title === 'Export' ? 'active' : '' %>">Export</a>
+        <a href="/migrate" class="<%= title === 'Migrate' || title === 'New Migration' ? 'active' : '' %>">Migrate</a>
+        <a href="/jobs" class="<%= title === 'Jobs' ? 'active' : '' %>">Jobs</a>
+        <a href="/settings" class="<%= title === 'Settings' ? 'active' : '' %>">Settings</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <header class="page-header">
+        <h1><%= title %></h1>
+      </header>
+      <%- body %>
+    </main>
+  </div>
+</body>
+</html>

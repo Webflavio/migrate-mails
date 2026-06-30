@@ -1,0 +1,26 @@
+{
+  "name": "email-backup-manager",
+  "version": "1.0.0",
+  "description": "Node.js email backup, export, and migration manager",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test tests/lib.test.js tests/repos.test.js",
+    "index-legacy": "node src/cli/indexLegacy.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "imapflow": "^1.0.184",
+    "mailparser": "^3.7.2",
+    "sql.js": "^1.12.0",
+    "zod": "^3.24.1"
+  }
+}

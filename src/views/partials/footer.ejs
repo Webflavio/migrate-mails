@@ -1,0 +1,32 @@
+      </main>
+    </div>
+  </div>
+  <script>
+  (function() {
+    var sidebar = document.getElementById("sidebar");
+    var overlay = document.getElementById("sidebarOverlay");
+    var toggle = document.getElementById("menuToggle");
+    var closeBtn = document.getElementById("sidebarClose");
+    function openMenu() {
+      if (sidebar) sidebar.classList.add("open");
+      if (overlay) overlay.classList.add("open");
+      document.body.classList.add("menu-open");
+    }
+    function closeMenu() {
+      if (sidebar) sidebar.classList.remove("open");
+      if (overlay) overlay.classList.remove("open");
+      document.body.classList.remove("menu-open");
+    }
+    if (toggle) toggle.addEventListener("click", openMenu);
+    if (closeBtn) closeBtn.addEventListener("click", closeMenu);
+    if (overlay) overlay.addEventListener("click", closeMenu);
+    document.querySelectorAll(".sidebar nav a").forEach(function(link) {
+      link.addEventListener("click", closeMenu);
+    });
+    window.addEventListener("resize", function() {
+      if (window.innerWidth > 992) closeMenu();
+    });
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<%- include('../partials/header', { title, active: 'dashboard' }) %>
+<div class="hero-banner">
+  <div>
+    <h2>Your email backup hub</h2>
+    <p>Manage accounts, run backups, browse messages, and migrate mail — all in one place.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/accounts/new">+ Add Account</a>
+    <a class="btn secondary" href="/browse/search">Browse Mail</a>
+  </div>
+</div>
+<div class="grid grid-4">
+  <div class="stat-card">
+    <div class="stat-icon purple">✉</div>
+    <div><div class="stat-label">Accounts</div><div class="stat-value"><%= stats.accountCount %></div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon blue">▤</div>
+    <div><div class="stat-label">Messages Backed Up</div><div class="stat-value"><%= stats.messageCount %></div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">◧</div>
+    <div><div class="stat-label">Storage Used</div><div class="stat-value"><%= stats.storageSize %></div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon red">!</div>
+    <div><div class="stat-label">Failed Jobs</div><div class="stat-value"><%= stats.failedJobs %></div></div>
+  </div>
+</div>
+<div class="grid grid-2" style="margin-top:16px">
+  <div class="card">
+    <div class="section-header">
+      <h3>Accounts</h3>
+      <a class="btn btn-sm secondary" href="/accounts">View all</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Label</th><th>Status</th><th>Messages</th><th></th></tr></thead>
+        <tbody>
+          <% if (!accounts.length) { %><tr><td colspan="4" class="empty">No accounts yet. <a href="/accounts/new">Add one</a>.</td></tr><% } %>
+          <% accounts.forEach(function(account) { %>
+          <tr>
+            <td><strong><%= account.label %></strong><br><small style="color:var(--cu-text-secondary)"><%= account.username %></small></td>
+            <td><span class="badge <%= statusClass(account.status) %>"><%= account.status %></span></td>
+            <td><%= account.message_count || 0 %></td>
+            <td><a class="btn btn-sm secondary" href="/accounts/<%= account.id %>">Open</a></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-header">
+      <h3>Recent Jobs</h3>
+      <a class="btn btn-sm secondary" href="/jobs">View all</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Status</th><th>Progress</th></tr></thead>
+        <tbody>
+          <% if (!jobs.length) { %><tr><td colspan="3" class="empty">No jobs yet.</td></tr><% } %>
+          <% jobs.forEach(function(job) { %>
+          <tr>
+            <td><a href="/jobs/<%= job.id %>"><%= job.type %></a></td>
+            <td><span class="badge <%= statusClass(job.status) %>"><%= job.status %></span></td>
+            <td><%= job.progress %>%</td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <div class="section-header">
+    <h3>Recent Backup Runs</h3>
+    <a class="btn btn-sm secondary" href="/backups">View all</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Account</th><th>Status</th><th>New</th><th>Started</th></tr></thead>
+      <tbody>
+        <% if (!runs.length) { %><tr><td colspan="4" class="empty">No backup runs yet.</td></tr><% } %>
+        <% runs.forEach(function(run) { %>
+        <tr>
+          <td><%= run.account_label %></td>
+          <td><span class="badge <%= statusClass(run.status) %>"><%= run.status %></span></td>
+          <td><%= run.new_messages %></td>
+          <td><%= formatDate(run.started_at) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../partials/footer') %>

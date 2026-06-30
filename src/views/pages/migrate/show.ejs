@@ -1,0 +1,10 @@
+<%- include('../../partials/header', { title, active: 'migrate' }) %>
+<div class="card">
+  <p><strong>Source:</strong> <%= migration.source_label %></p>
+  <p><strong>Target:</strong> <%= migration.target_label %></p>
+  <p><strong>Status:</strong> <span class="badge <%= statusClass(migration.status) %>"><%= migration.status %></span></p>
+  <p><strong>Total:</strong> <%= migration.total_messages %> · <strong>Migrated:</strong> <%= migration.migrated_messages %> · <strong>Skipped:</strong> <%= migration.skipped_messages %> · <strong>Errors:</strong> <%= migration.error_count %></p>
+  <h3>Folder Mapping</h3>
+  <ul><% Object.keys(migration.folder_mapping || {}).forEach(function(key){ %><li><%= key %> → <%= migration.folder_mapping[key] %></li><% }) %></ul>
+</div>
+<%- include('../../partials/footer') %>

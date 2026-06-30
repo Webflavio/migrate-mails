@@ -1,0 +1,15 @@
+<%- include('../../partials/header', { title, active: 'accounts' }) %>
+<% if (error) { %><div class="alert error"><%= error %></div><% } %>
+<form class="card form-grid" method="post" action="<%= account && account.id ? '/accounts/' + account.id : '/accounts' %>">
+  <label>Label<input name="label" value="<%= account ? account.label : '' %>" required></label>
+  <label>IMAP Host<input name="imap_host" value="<%= account ? account.imap_host : 'secure.emailsrvr.com' %>" required></label>
+  <label>Port<input name="imap_port" type="number" value="<%= account ? account.imap_port : 993 %>" required></label>
+  <label>Secure (TLS)<select name="imap_secure"><option value="true" <%= !account || account.imap_secure ? 'selected' : '' %>>Yes</option><option value="false" <%= account && !account.imap_secure ? 'selected' : '' %>>No</option></select></label>
+  <label>Username<input name="username" value="<%= account ? account.username : '' %>" required></label>
+  <label>Password<input name="password" type="password" <%= account ? '' : 'required' %> placeholder="<%= account ? 'Leave blank to keep current' : '' %>"></label>
+  <div class="btn-row">
+    <input type="submit" class="btn" value="<%= account && account.id ? 'Update Account' : 'Create Account' %>">
+    <a class="btn secondary" href="/accounts">Cancel</a>
+  </div>
+</form>
+<%- include('../../partials/footer') %>

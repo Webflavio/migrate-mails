@@ -1,0 +1,14 @@
+<%- include('../../partials/header', { title, active: 'settings' }) %>
+<% if (saved) { %><div class="alert ok">Settings saved.</div><% } %>
+<form class="card form-grid" method="post" action="/settings">
+  <label>Export Retention (days)<input name="export_retention_days" type="number" value="<%= settings.export_retention_days || config.exportRetentionDays %>"></label>
+  <label>Max Message Size (MB)<input name="max_message_mb" type="number" value="<%= settings.max_message_mb || (config.maxMessageBytes / 1024 / 1024) %>"></label>
+  <div class="btn-row"><button class="btn">Save Settings</button></div>
+</form>
+<div class="card" style="margin-top:18px">
+  <p><strong>Database:</strong> <%= config.dbPath %></p>
+  <p><strong>Storage:</strong> <%= config.storagePath %> (<%= storageSize %>)</p>
+  <p><strong>Exports:</strong> <%= config.exportPath %></p>
+  <p><strong>Legacy Backup Path:</strong> <%= config.legacyBackupPath %></p>
+</div>
+<%- include('../../partials/footer') %>

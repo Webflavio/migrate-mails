@@ -1,0 +1,41 @@
+<%- include('../../partials/header', { title, active: 'jobs' }) %>
+<div class="grid grid-2">
+  <div class="card">
+    <h3>Jobs</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Progress</th><th>Created</th></tr></thead>
+        <tbody>
+          <% jobs.forEach(function(job){ %>
+          <tr>
+            <td><a href="/jobs/<%= job.id %>"><%= job.id %></a></td>
+            <td><%= job.type %></td>
+            <td><span class="badge <%= statusClass(job.status) %>"><%= job.status %></span></td>
+            <td><%= job.progress %>%</td>
+            <td><%= formatDate(job.created_at) %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Backup Runs</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Account</th><th>Status</th><th>New</th><th>Started</th></tr></thead>
+        <tbody>
+          <% runs.forEach(function(run){ %>
+          <tr>
+            <td><%= run.account_label %></td>
+            <td><span class="badge <%= statusClass(run.status) %>"><%= run.status %></span></td>
+            <td><%= run.new_messages %></td>
+            <td><%= formatDate(run.started_at) %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<%- include('../../partials/footer') %>

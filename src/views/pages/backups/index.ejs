@@ -1,0 +1,24 @@
+<%- include('../../partials/header', { title, active: 'backups' }) %>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Account</th><th>Status</th><th>Folders</th><th>Messages</th><th>New</th><th>Errors</th><th>Started</th><th>Finished</th></tr></thead>
+      <tbody>
+        <% if (!runs.length) { %><tr><td colspan="8" class="empty">No backup runs yet.</td></tr><% } %>
+        <% runs.forEach(function(run){ %>
+        <tr>
+          <td><%= run.account_label %></td>
+          <td><span class="badge <%= statusClass(run.status) %>"><%= run.status %></span></td>
+          <td><%= run.total_folders %></td>
+          <td><%= run.total_messages %></td>
+          <td><%= run.new_messages %></td>
+          <td><%= run.error_count %></td>
+          <td><%= formatDate(run.started_at) %></td>
+          <td><%= formatDate(run.finished_at) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../../partials/footer') %>

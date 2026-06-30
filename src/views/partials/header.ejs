@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> · MailVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/public/css/app.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <div class="brand-mark">MV</div>
+          <div>
+            <strong>MailVault</strong>
+            <span>Email Backup Manager</span>
+          </div>
+        </div>
+        <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close menu">✕</button>
+      </div>
+      <nav>
+        <a href="/" class="nav-item <%= active === 'dashboard' ? 'active' : '' %>"><span class="nav-icon">▦</span> Dashboard</a>
+        <a href="/accounts" class="nav-item <%= active === 'accounts' ? 'active' : '' %>"><span class="nav-icon">✉</span> Accounts</a>
+        <a href="/backups" class="nav-item <%= active === 'backups' ? 'active' : '' %>"><span class="nav-icon">↻</span> Backups</a>
+        <a href="/browse" class="nav-item <%= active === 'browse' ? 'active' : '' %>"><span class="nav-icon">⌕</span> Browse</a>
+        <a href="/export" class="nav-item <%= active === 'export' ? 'active' : '' %>"><span class="nav-icon">⇩</span> Export</a>
+        <a href="/migrate" class="nav-item <%= active === 'migrate' ? 'active' : '' %>"><span class="nav-icon">⇄</span> Migrate</a>
+        <a href="/jobs" class="nav-item <%= active === 'jobs' ? 'active' : '' %>"><span class="nav-icon">◷</span> Jobs</a>
+        <a href="/settings" class="nav-item <%= active === 'settings' ? 'active' : '' %>"><span class="nav-icon">⚙</span> Settings</a>
+      </nav>
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit" class="nav-item logout-btn"><span class="nav-icon">⎋</span> Sign out</button>
+      </form>
+    </aside>
+    <div class="main-wrap">
+      <header class="mobile-topbar">
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">☰</button>
+        <div class="mobile-title"><%= title %></div>
+        <form method="post" action="/logout" class="mobile-logout">
+          <button type="submit" class="menu-toggle" aria-label="Sign out">⎋</button>
+        </form>
+      </header>
+      <main class="content">
+        <header class="page-header">
+          <div>
+            <p class="page-eyebrow">MailVault</p>
+            <h1><%= title %></h1>
+          </div>
+        </header>

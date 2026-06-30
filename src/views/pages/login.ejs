@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In · MailVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/public/css/app.css">
+</head>
+<body class="login-page">
+  <div class="login-shell">
+    <div class="login-brand">
+      <div class="brand-mark">MV</div>
+      <h1>MailVault</h1>
+      <p>Email backup, export & migration</p>
+    </div>
+    <form class="login-card" method="post" action="/login">
+      <input type="hidden" name="next" value="<%= next %>">
+      <h2>Welcome back</h2>
+      <p class="login-sub">Enter your dashboard password to continue.</p>
+      <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+      <label>Password<input name="password" type="password" autofocus required placeholder="Dashboard password"></label>
+      <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

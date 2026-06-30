@@ -1,0 +1,36 @@
+<%- include('../../partials/header', { title, active: 'browse' }) %>
+<form class="card filters" method="get" action="/browse/search">
+  <label>Account<select name="account"><option value="">All</option><% accounts.forEach(function(a){ %><option value="<%= a.id %>" <%= accountId === a.id ? 'selected' : '' %>><%= a.label %></option><% }) %></select></label>
+  <label>Folder<select name="folder"><option value="">All</option><% folders.forEach(function(f){ %><option value="<%= f.id %>" <%= folderId === f.id ? 'selected' : '' %>><%= f.remote_name %></option><% }) %></select></label>
+  <label>Search<input name="q" value="<%= q %>" placeholder="subject, sender, text"></label>
+  <label>From<input type="date" name="from" value="<%= filters && filters.fromDate ? filters.fromDate.slice(0,10) : '' %>"></label>
+  <label>To<input type="date" name="to" value="<%= filters && filters.toDate ? filters.toDate.slice(0,10) : '' %>"></label>
+  <label style="grid-column: span 5"><input type="checkbox" name="attachments" value="1" <%= filters && filters.hasAttachments ? 'checked' : '' %>> With attachments only</label>
+  <div class="btn-row" style="grid-column: span 5"><button class="btn">Search</button></div>
+</form>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>From</th><th>Subject</th><th>Folder</th><th>Account</th></tr></thead>
+      <tbody>
+        <% if (!messages.length) { %><tr><td colspan="5" class="empty">No messages found. Add an account and run backup or index legacy data.</td></tr><% } %>
+        <% messages.forEach(function(msg) { %>
+        <tr>
+          <td><%= formatDate(msg.date_sent) %></td>
+          <td><%= msg.from_addr || '—' %></td>
+          <td><a href="/browse/messages/<%= msg.id %>"><%= msg.subject || '(no subject)' %></a></td>
+          <td><%= msg.folder_name %></td>
+          <td><%= msg.account_label %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <% if (total > 50) { %>
+  <div class="btn-row">
+    <% if (page > 1) { %><a class="btn secondary" href="/browse/search?account=<%= accountId || '' %>&folder=<%= folderId || '' %>&q=<%= encodeURIComponent(q) %>&page=<%= page - 1 %>">Previous</a><% } %>
+    <% if (page * 50 < total) { %><a class="btn secondary" href="/browse/search?account=<%= accountId || '' %>&folder=<%= folderId || '' %>&q=<%= encodeURIComponent(q) %>&page=<%= page + 1 %>">Next</a><% } %>
+  </div>
+  <% } %>
+</div>
+<%- include('../../partials/footer') %>

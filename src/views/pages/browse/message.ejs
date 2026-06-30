@@ -1,0 +1,21 @@
+<%- include('../../partials/header', { title, active: 'browse' }) %>
+<div class="card">
+  <div class="message-meta">
+    <div><strong>From:</strong> <%= message.from_addr || '—' %></div>
+    <div><strong>To:</strong> <%= message.to_addr || '—' %></div>
+    <div><strong>Date:</strong> <%= formatDate(message.date_sent) %></div>
+    <div><strong>Folder:</strong> <%= message.folder_name %> · <%= message.account_label %></div>
+    <div><strong>Size:</strong> <%= message.size_bytes %> bytes</div>
+  </div>
+  <div class="btn-row">
+    <a class="btn" href="/browse/messages/<%= message.id %>/raw">Download Raw .eml</a>
+    <a class="btn secondary" href="/browse/search?account=<%= message.account_id %>">Back to Browse</a>
+  </div>
+  <% if (attachments.length) { %>
+  <h3>Attachments</h3>
+  <ul><% attachments.forEach(function(att){ %><li><%= att.filename %> (<%= att.content_type %>, <%= att.size_bytes %> bytes)</li><% }) %></ul>
+  <% } %>
+  <h3>Preview</h3>
+  <div class="message-body"><%= message.text_preview || 'No text preview available.' %></div>
+</div>
+<%- include('../../partials/footer') %>

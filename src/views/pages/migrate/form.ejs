@@ -1,0 +1,25 @@
+<%- include('../../partials/header', { title, active: 'migrate' }) %>
+<% if (error) { %><div class="alert error"><%= error %></div><% } %>
+<form class="card form-grid" method="post" action="/migrate" id="migrateForm">
+  <label>Source Account<select name="sourceAccountId" id="sourceSelect" required><option value="">Select source</option><% accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.label %></option><% }) %></select></label>
+  <label>Target Account<select name="targetAccountId" required><option value="">Select target</option><% accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.label %></option><% }) %></select></label>
+  <label>Duplicate Strategy<select name="duplicateStrategy"><option value="message_id">Skip by Message-ID</option><option value="none">No duplicate check</option></select></label>
+  <div id="folderMapping"></div>
+  <div class="btn-row"><button class="btn">Start Migration</button></div>
+</form>
+<script>
+document.getElementById('sourceSelect').addEventListener('change', async function() {
+  const id = this.value;
+  const box = document.getElementById('folderMapping');
+  box.innerHTML = '<h3>Folder Mapping</h3>';
+  if (!id) return;
+  const res = await fetch('/migrate/folders/' + id);
+  const folders = await res.json();
+  folders.forEach(function(folder) {
+    const label = document.createElement('label');
+    label.innerHTML = folder.remote_name + ' → <input name="map_' + folder.id + '" value="' + folder.remote_name + '">';
+    box.appendChild(label);
+  });
+});
+</script>
+<%- include('../../partials/footer') %>

@@ -1,0 +1,24 @@
+<%- include('../../partials/header', { title, active: 'migrate' }) %>
+<div class="btn-row"><a class="btn" href="/migrate/new">New Migration</a></div>
+<div class="card" style="margin-top:18px">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Source</th><th>Target</th><th>Status</th><th>Migrated</th><th>Skipped</th><th>Errors</th><th>Created</th></tr></thead>
+      <tbody>
+        <% if (!migrations.length) { %><tr><td colspan="7" class="empty">No migrations yet.</td></tr><% } %>
+        <% migrations.forEach(function(m){ %>
+        <tr>
+          <td><%= m.source_label %></td>
+          <td><%= m.target_label %></td>
+          <td><span class="badge <%= statusClass(m.status) %>"><%= m.status %></span></td>
+          <td><%= m.migrated_messages %></td>
+          <td><%= m.skipped_messages %></td>
+          <td><%= m.error_count %></td>
+          <td><%= formatDate(m.created_at) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../../partials/footer') %>
