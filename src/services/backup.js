@@ -1,4 +1,4 @@
-const { withClient } = require("../lib/imap");
+const { withClient, listMailboxes } = require("../lib/imap");
 const { hashContent } = require("../lib/crypto");
 const { parseMessage } = require("../lib/parser");
 const { saveRawMessage } = require("../lib/storage");
@@ -20,10 +20,8 @@ async function runBackup(accountId, jobUpdate) {
   const usedNames = new Set();
   try {
     await withClient(account, password, async (client) => {
-      const remoteFolders = [];
-      for await (const box of client.list()) {
-        remoteFolders.push({ name: box.path, delimiter: box.delimiter || "/" });
-      }
+      const boxes = await listMailboxes(client);
+      const remoteFolders = boxes.map((box) => ({ name: box.path, delimiter: box.delimiter || "/" }));
       const totalFolders = remoteFolders.length;
       let folderIndex = 0;
       for (const remote of remoteFolders) {

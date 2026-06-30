@@ -31,6 +31,13 @@ function formatImapError(err) {
   if (/authentication/i.test(err.message || "") || err.authenticationFailed) return `Authentication failed: ${err.message || "check username and password"}`;
   return err.message || String(err);
 }
+async function listMailboxes(client, options) {
+  const result = await client.list(options);
+  if (Array.isArray(result)) return result;
+  const folders = [];
+  for await (const box of result) folders.push(box);
+  return folders;
+}
 async function withClient(account, password, fn) {
   const client = createClient(account, password);
   try {
@@ -44,20 +51,19 @@ async function withClient(account, password, fn) {
 }
 async function testConnection(account, password) {
   return withClient(account, password, async (client) => {
-    const folders = [];
-    for await (const box of client.list()) {
-      folders.push({ name: box.path, delimiter: box.delimiter || "/" });
-    }
+    const boxes = await listMailboxes(client);
+    const folders = boxes.map((box) => ({ name: box.path, delimiter: box.delimiter || "/" }));
     return { ok: true, folderCount: folders.length, folders: folders.slice(0, 20) };
   });
 }
 async function listFolders(account, password) {
   return withClient(account, password, async (client) => {
-    const folders = [];
-    for await (const box of client.list()) {
-      folders.push({ name: box.path, delimiter: box.delimiter || "/", flags: box.flags });
-    }
-    return folders;
+    const boxes = await listMailboxes(client);
+    return boxes.map((box) => ({
+      name: box.path,
+      delimiter: box.delimiter || "/",
+      flags: box.flags instanceof Set ? Array.from(box.flags) : box.flags,
+    }));
   });
 }
 async function ensureFolder(client, name, delimiter) {
@@ -86,4 +92,4 @@ function mapFolderName(name, sourceDelimiter, targetDelimiter) {
   }
   return name;
 }
-module.exports = { createClient, withClient, testConnection, listFolders, ensureFolder, mapFolderName, formatImapError };
+module.exports = { createClient, withClient, testConnection, listFolders, listMailboxes, ensureFolder, mapFolderName, formatImapError };

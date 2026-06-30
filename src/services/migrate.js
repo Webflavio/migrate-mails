@@ -1,4 +1,4 @@
-const { withClient, ensureFolder, mapFolderName } = require("../lib/imap");
+const { withClient, ensureFolder, mapFolderName, listMailboxes } = require("../lib/imap");
 const { readRawMessage } = require("../lib/storage");
 const accountsRepo = require("../repos/accounts");
 const foldersRepo = require("../repos/folders");
@@ -24,7 +24,8 @@ async function runMigration(migrationId, jobUpdate) {
   migrationsRepo.updateMigration(migrationId, { total_messages: total });
   await withClient(targetAccount, targetPassword, async (client) => {
     let targetDelimiter = "/";
-    for await (const box of client.list()) {
+    const boxes = await listMailboxes(client);
+    for (const box of boxes) {
       if (box.delimiter) { targetDelimiter = box.delimiter; break; }
     }
     let processed = 0;
