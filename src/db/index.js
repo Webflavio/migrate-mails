@@ -1,24 +1,22 @@
 const fs = require("fs");
 const path = require("path");
-const util = require("util");
-const mysql = require("mysql");
+const mysql = require("mysql2/promise");
 const config = require("../config");
 const { runMigrations } = require("./migrate");
 const schema = fs.readFileSync(path.join(__dirname, "schema.mysql.sql"), "utf8");
 const state = global.__mailvaultDbState || { pool: null };
 global.__mailvaultDbState = state;
-function wrapPool(pool) {
-  pool.queryAsync = util.promisify(pool.query.bind(pool));
-  pool.getConnectionAsync = util.promisify(pool.getConnection.bind(pool));
-  return pool;
+function isLocalMysqlHost(host) {
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
 }
 function resolveMysqlHost(host) {
   if (config.isHosted && (host === "127.0.0.1" || host === "::1")) return "localhost";
   return host;
 }
 function buildPoolOptions(mysqlConfig) {
+  const host = resolveMysqlHost(mysqlConfig.host);
   const opts = {
-    host: resolveMysqlHost(mysqlConfig.host),
+    host,
     port: mysqlConfig.port,
     user: mysqlConfig.user,
     password: mysqlConfig.password,
@@ -30,6 +28,7 @@ function buildPoolOptions(mysqlConfig) {
     multipleStatements: true,
   };
   if (mysqlConfig.socketPath) opts.socketPath = mysqlConfig.socketPath;
+  if (!isLocalMysqlHost(host)) opts.ssl = { rejectUnauthorized: false };
   return opts;
 }
 function formatDbError(err, mysqlConfig) {
@@ -52,6 +51,11 @@ function formatDbError(err, mysqlConfig) {
       `Could not connect to MySQL at ${host}:${mysqlConfig.port}. Check the host and port in MYSQL_URL.`
     );
   }
+  if (err.code === "ER_NOT_SUPPORTED_AUTH_MODE") {
+    return new Error(
+      "MySQL server requires a modern authentication plugin (MySQL 8+). Update the app to the latest version with mysql2 support."
+    );
+  }
   return err;
 }
 function getPool() {
@@ -59,7 +63,7 @@ function getPool() {
   throw new Error("Database not initialized. Call initDb() first.");
 }
 async function query(sql, params) {
-  const rows = await getPool().queryAsync(sql, params);
+  const [rows] = await getPool().query(sql, params);
   return rows;
 }
 async function queryOne(sql, params) {
@@ -67,32 +71,34 @@ async function queryOne(sql, params) {
   return rows[0];
 }
 async function execute(sql, params) {
-  const result = await getPool().queryAsync(sql, params);
+  const [result] = await getPool().query(sql, params);
   return { lastInsertRowid: Number(result.insertId), changes: result.affectedRows };
 }
 function connQuery(conn) {
-  const queryAsync = util.promisify(conn.query.bind(conn));
   return {
-    query: queryAsync,
+    query: async (sql, params) => {
+      const [rows] = await conn.query(sql, params);
+      return rows;
+    },
     queryOne: async (sql, params) => {
-      const rows = await queryAsync(sql, params);
+      const rows = await connQuery(conn).query(sql, params);
       return rows[0];
     },
     execute: async (sql, params) => {
-      const result = await queryAsync(sql, params);
+      const [result] = await conn.query(sql, params);
       return { lastInsertRowid: Number(result.insertId), changes: result.affectedRows };
     },
   };
 }
 async function transaction(fn) {
-  const conn = await getPool().getConnectionAsync();
+  const conn = await getPool().getConnection();
   try {
-    await util.promisify(conn.beginTransaction.bind(conn))();
+    await conn.beginTransaction();
     const result = await fn(connQuery(conn));
-    await util.promisify(conn.commit.bind(conn))();
+    await conn.commit();
     return result;
   } catch (err) {
-    await util.promisify(conn.rollback.bind(conn))();
+    await conn.rollback();
     throw err;
   } finally {
     conn.release();
@@ -118,23 +124,22 @@ async function bootstrapSchema() {
 async function initDb() {
   if (state.pool) return state.pool;
   const mysqlConfig = config.mysql;
-  const hostsToTry = [];
   const primaryHost = resolveMysqlHost(mysqlConfig.host);
-  hostsToTry.push(primaryHost);
-  if (primaryHost !== "localhost" && mysqlConfig.host !== "localhost") hostsToTry.push("localhost");
+  const hostsToTry = [primaryHost];
+  if (primaryHost === "127.0.0.1" || primaryHost === "::1") hostsToTry.push("localhost");
   let lastError;
   for (const host of hostsToTry) {
     if (state.pool) {
-      await util.promisify(state.pool.end.bind(state.pool))();
+      await state.pool.end();
       state.pool = null;
     }
-    state.pool = wrapPool(mysql.createPool(buildPoolOptions({ ...mysqlConfig, host })));
+    state.pool = mysql.createPool(buildPoolOptions({ ...mysqlConfig, host }));
     try {
       await bootstrapSchema();
       return state.pool;
     } catch (err) {
       lastError = err;
-      await util.promisify(state.pool.end.bind(state.pool))();
+      await state.pool.end();
       state.pool = null;
       if (err.code !== "ER_ACCESS_DENIED_ERROR" && err.code !== "ECONNREFUSED") break;
     }
@@ -143,7 +148,7 @@ async function initDb() {
 }
 async function closeDb() {
   if (state.pool) {
-    await util.promisify(state.pool.end.bind(state.pool))();
+    await state.pool.end();
     state.pool = null;
   }
 }

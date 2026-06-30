@@ -76,15 +76,21 @@ If you use a `.env` file on the server, remove `PORT=3847` from it so Hostinger'
 MYSQL_URL=mysql://USERNAME:PASSWORD@localhost:3306/DATABASE_NAME
 ```
 
-Example:
+Example (Hostinger local MySQL):
 
 ```env
 MYSQL_URL=mysql://u871337011_mail:MyPass123@localhost:3306/u871337011_mail
 ```
 
-If the password contains special characters (`@`, `#`, `/`, etc.), URL-encode it. For example, `P@ss#1` becomes `P%40ss%231`.
+Example (Railway or other remote MySQL 8):
 
-This app uses the pure JavaScript `mysql` driver (no native compilation), so it installs cleanly on Hostinger shared hosting without `node-gyp` or `make`.
+```env
+MYSQL_URL=mysql://root:PASSWORD@maglev.proxy.rlwy.net:11588/railway
+```
+
+Remote hosts automatically use SSL. URL-encode special characters in the password.
+
+This app uses the `mysql2` driver, which supports MySQL 8 authentication (e.g. Railway) and Hostinger's local MySQL.
 
 ### Data persistence (important)
 
