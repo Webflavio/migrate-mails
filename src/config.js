@@ -1,5 +1,6 @@
 const path = require("path");
 const { z } = require("zod");
+const { parseBool } = require("./lib/parseBool");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const schema = z.object({
   PORT: z.coerce.number().default(3847),
@@ -12,6 +13,9 @@ const schema = z.object({
   JOB_CONCURRENCY: z.coerce.number().default(1),
   EXPORT_RETENTION_DAYS: z.coerce.number().default(7),
   IMAP_TIMEOUT_MS: z.coerce.number().default(120000),
+  IMAP_TLS_INSECURE: z.string().optional(),
+  TRUST_PROXY: z.string().optional(),
+  NODE_ENV: z.string().optional(),
   ADMIN_PASSWORD: z.string().min(4).default("changeme"),
 });
 const parsed = schema.safeParse(process.env);
@@ -31,6 +35,11 @@ const config = {
   jobConcurrency: parsed.data.JOB_CONCURRENCY,
   exportRetentionDays: parsed.data.EXPORT_RETENTION_DAYS,
   imapTimeoutMs: parsed.data.IMAP_TIMEOUT_MS,
+  imapTlsInsecure: parseBool(parsed.data.IMAP_TLS_INSECURE, false),
+  trustProxy: parsed.data.TRUST_PROXY === "false" || parsed.data.TRUST_PROXY === "0"
+    ? false
+    : parsed.data.TRUST_PROXY === "true" ? true : Number(parsed.data.TRUST_PROXY || 1),
+  isProduction: parsed.data.NODE_ENV === "production",
   adminPassword: parsed.data.ADMIN_PASSWORD,
   root,
 };

@@ -1,5 +1,6 @@
 <%- include('../../partials/header', { title, active: 'accounts' }) %>
-<% if (typeof query !== 'undefined' && query) {} %>
+<% if (notice) { %><div class="alert ok"><%= notice %></div><% } %>
+<% if (error) { %><div class="alert error"><%= error %></div><% } %>
 <div class="grid grid-2">
   <div class="card">
     <h3><%= account.label %></h3>

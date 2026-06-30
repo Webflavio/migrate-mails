@@ -20,6 +20,7 @@ const { clearSessionCookie } = require("./lib/session");
 async function main() {
   await initDb();
   const app = express();
+  app.set("trust proxy", config.trustProxy);
   app.set("view engine", "ejs");
   app.set("views", path.join(__dirname, "views"));
   app.use(express.urlencoded({ extended: true }));

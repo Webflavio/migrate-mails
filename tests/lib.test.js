@@ -16,3 +16,11 @@ test("hashContent is stable", () => {
   assert.equal(a, b);
   assert.notEqual(a, hashContent(Buffer.from("world")));
 });
+const { parseBool } = require("../src/lib/parseBool");
+test("parseBool handles form string values", () => {
+  assert.equal(parseBool("true"), true);
+  assert.equal(parseBool("false"), false);
+  assert.equal(parseBool("0"), false);
+  assert.equal(parseBool("1"), true);
+  assert.equal(parseBool(undefined, true), true);
+});

@@ -5,12 +5,13 @@ const foldersRepo = require("../repos/folders");
 const backupRunsRepo = require("../repos/backupRuns");
 const jobsRepo = require("../repos/jobs");
 const { testConnection } = require("../lib/imap");
+const { parseBool } = require("../lib/parseBool");
 const router = express.Router();
 const accountSchema = z.object({
   label: z.string().min(1).max(120),
   imap_host: z.string().min(1),
   imap_port: z.coerce.number().default(993),
-  imap_secure: z.coerce.boolean().default(true),
+  imap_secure: z.preprocess((val) => parseBool(val, true), z.boolean()),
   username: z.string().min(1),
   password: z.string().optional(),
 });
@@ -33,7 +34,13 @@ router.get("/:id", (req, res) => {
   if (!account) return res.status(404).render("pages/error", { title: "Not Found", message: "Account not found." });
   const folders = foldersRepo.listFolders(account.id);
   const runs = backupRunsRepo.listRuns(account.id, 10);
-  res.render("pages/accounts/show", { title: account.label, account, folders, runs });
+  let notice = null;
+  let error = null;
+  if (req.query.test === "ok") notice = "Connection successful.";
+  else if (req.query.test === "fail") error = req.query.msg || "Connection failed.";
+  else if (req.query.backup === "queued") notice = "Backup job queued.";
+  else if (req.query.index === "queued") notice = "Legacy index job queued.";
+  res.render("pages/accounts/show", { title: account.label, account, folders, runs, notice, error });
 });
 router.get("/:id/edit", (req, res) => {
   const account = accountsRepo.getAccount(Number(req.params.id));
@@ -64,8 +71,9 @@ router.post("/:id/test", async (req, res) => {
     res.redirect(`/accounts/${account.id}?test=ok`);
   } catch (err) {
     accountsRepo.setAccountStatus(account.id, "error");
-    if (req.headers.accept && req.headers.accept.includes("json")) return res.status(400).json({ ok: false, error: err.message });
-    res.redirect(`/accounts/${account.id}?test=fail`);
+    const message = err.message || "Connection failed";
+    if (req.headers.accept && req.headers.accept.includes("json")) return res.status(400).json({ ok: false, error: message });
+    res.redirect(`/accounts/${account.id}?test=fail&msg=${encodeURIComponent(message)}`);
   }
 });
 router.post("/:id/backup", (req, res) => {

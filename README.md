@@ -36,11 +36,15 @@ LEGACY_BACKUP_PATH=./backup
 MAX_MESSAGE_MB=50
 EXPORT_RETENTION_DAYS=7
 IMAP_TIMEOUT_MS=120000
+IMAP_TLS_INSECURE=false
+TRUST_PROXY=1
 ```
 
 **Important:** set `APP_SECRET` to a long random string before adding accounts. Passwords are encrypted in SQLite using this key.
 
 Set `ADMIN_PASSWORD` in `.env` to protect the dashboard — all pages require sign-in.
+
+On Hostinger or any reverse-proxy host, keep `TRUST_PROXY=1` (default). If IMAP tests fail with certificate errors, set `IMAP_TLS_INSECURE=true`.
 
 ## Run
 

@@ -1,5 +1,10 @@
 const { ImapFlow } = require("imapflow");
 const config = require("../config");
+function buildTlsOptions(account) {
+  const tls = { servername: account.imap_host };
+  if (config.imapTlsInsecure) tls.rejectUnauthorized = false;
+  return tls;
+}
 function createClient(account, password) {
   return new ImapFlow({
     host: account.imap_host,
@@ -9,13 +14,30 @@ function createClient(account, password) {
     logger: false,
     socketTimeout: config.imapTimeoutMs,
     greetingTimeout: config.imapTimeoutMs,
+    connectionTimeout: config.imapTimeoutMs,
+    tls: buildTlsOptions(account),
   });
+}
+function formatImapError(err) {
+  if (!err) return "Unknown IMAP error";
+  if (err.responseText) return `${err.message || "IMAP error"}: ${err.responseText}`;
+  if (err.code === "ECONNREFUSED") return `Connection refused to ${err.address || "server"}${err.port ? `:${err.port}` : ""}`;
+  if (err.code === "ETIMEDOUT" || err.code === "ESOCKET") return "Connection timed out. Check host, port, TLS setting, and whether outbound IMAP is allowed on this server.";
+  if (err.code === "ENOTFOUND") return "Host not found. Verify the IMAP hostname.";
+  if (err.code === "ECONNRESET") return "Connection reset by server. Try toggling Secure (TLS) or port 993 vs 143.";
+  if (err.code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" || err.code === "CERT_HAS_EXPIRED" || /certificate/i.test(err.message || "")) {
+    return `TLS certificate error: ${err.message}. Set IMAP_TLS_INSECURE=true in .env if your provider uses a self-signed certificate.`;
+  }
+  if (/authentication/i.test(err.message || "") || err.authenticationFailed) return `Authentication failed: ${err.message || "check username and password"}`;
+  return err.message || String(err);
 }
 async function withClient(account, password, fn) {
   const client = createClient(account, password);
   try {
     await client.connect();
     return await fn(client);
+  } catch (err) {
+    throw new Error(formatImapError(err));
   } finally {
     try { await client.logout(); } catch (_) {}
   }
@@ -64,4 +86,4 @@ function mapFolderName(name, sourceDelimiter, targetDelimiter) {
   }
   return name;
 }
-module.exports = { createClient, withClient, testConnection, listFolders, ensureFolder, mapFolderName };
+module.exports = { createClient, withClient, testConnection, listFolders, ensureFolder, mapFolderName, formatImapError };
