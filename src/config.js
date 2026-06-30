@@ -1,11 +1,18 @@
+const fs = require("fs");
 const path = require("path");
 const { z } = require("zod");
 const { parseBool } = require("./lib/parseBool");
 const { resolveDataPath } = require("./lib/paths");
+const { normalizeMysqlConfig, validateMysqlConfig } = require("./lib/mysqlConfig");
 const envPath = path.join(__dirname, "..", ".env");
 const platformPort = process.env.PORT;
 const platformNodeEnv = process.env.NODE_ENV;
-require("dotenv").config({ path: envPath });
+const isLikelyHosted = Boolean(platformPort);
+if (!isLikelyHosted && fs.existsSync(envPath)) {
+  require("dotenv").config({ path: envPath });
+} else if (isLikelyHosted) {
+  console.log("[startup] Hosted mode: using platform environment variables only (ignoring .env for MySQL)");
+}
 if (platformPort) process.env.PORT = platformPort;
 if (platformNodeEnv) process.env.NODE_ENV = platformNodeEnv;
 const schema = z.object({
@@ -51,19 +58,21 @@ function getDataRoot() {
 }
 const dataRoot = getDataRoot();
 const pathOpts = { root, dataRoot };
+const mysql = normalizeMysqlConfig({
+  host: parsed.data.MYSQL_HOST,
+  port: parsed.data.MYSQL_PORT,
+  user: parsed.data.MYSQL_USER,
+  password: parsed.data.MYSQL_PASSWORD,
+  database: parsed.data.MYSQL_DATABASE,
+  socketPath: parsed.data.MYSQL_SOCKET,
+}, isHosted);
+validateMysqlConfig(mysql, isHosted);
 const config = {
   port: parsed.data.PORT || 3847,
   host: parsed.data.HOST,
   dataRoot,
   appSecret: parsed.data.APP_SECRET,
-  mysql: {
-    host: parsed.data.MYSQL_HOST,
-    port: parsed.data.MYSQL_PORT,
-    user: parsed.data.MYSQL_USER,
-    password: parsed.data.MYSQL_PASSWORD,
-    database: parsed.data.MYSQL_DATABASE,
-    socketPath: parsed.data.MYSQL_SOCKET || undefined,
-  },
+  mysql,
   storagePath: resolveDataPath({ ...pathOpts, setting: parsed.data.STORAGE_PATH, defaultRel: "./storage/emails", leaf: "emails" }),
   exportPath: resolveDataPath({ ...pathOpts, setting: parsed.data.EXPORT_PATH, defaultRel: "./exports", leaf: "exports" }),
   legacyBackupPath: path.isAbsolute(parsed.data.LEGACY_BACKUP_PATH)

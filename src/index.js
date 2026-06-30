@@ -34,8 +34,10 @@ async function main() {
   console.log("[startup] Ensuring data directories...");
   ensureAppDirs();
   console.log("[startup] Data root:", config.dataRoot || config.storagePath);
+  const { mysqlStartupHint } = require("./lib/mysqlConfig");
   const mysqlHost = config.isHosted && (config.mysql.host === "127.0.0.1" || config.mysql.host === "::1") ? "localhost" : config.mysql.host;
   console.log("[startup] MySQL:", `${mysqlHost}:${config.mysql.port}/${config.mysql.database} (user: ${config.mysql.user})`);
+  console.log(mysqlStartupHint(config.mysql, config.isHosted));
   console.log("[startup] Storage:", config.storagePath);
   console.log("[startup] Initializing database...");
   await initDb();

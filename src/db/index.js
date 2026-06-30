@@ -37,8 +37,9 @@ function formatDbError(err, mysqlConfig) {
   if (err.code === "ER_ACCESS_DENIED_ERROR") {
     return new Error(
       `MySQL login failed for user '${mysqlConfig.user}'@${host}. ` +
-      "Use MYSQL_HOST=localhost on Hostinger (not 127.0.0.1). " +
-      "Copy MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE exactly from hPanel → Databases → MySQL."
+      "The password or username is wrong, or the user is not linked to the database. " +
+      "In hPanel → Databases → Management: reset the MySQL user password, confirm MYSQL_USER is the username (not only the database name), " +
+      "assign the user to MYSQL_DATABASE with All Privileges, then update MYSQL_PASSWORD in Node.js env vars and redeploy."
     );
   }
   if (err.code === "ER_BAD_DB_ERROR") {
