@@ -12,14 +12,20 @@
   "engines": {
     "node": ">=18"
   },
+  "overrides": {
+    "html-to-text": "9.0.5",
+    "thread-stream": "3.1.0",
+    "nodemailer": "9.0.3",
+    "socks": "2.8.9"
+  },
   "dependencies": {
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
-    "imapflow": "^1.0.184",
-    "mailparser": "^3.7.2",
+    "imapflow": "1.0.184",
+    "mailparser": "3.9.12",
     "sql.js": "^1.12.0",
     "zod": "^3.24.1"
   }
