@@ -1,9 +1,15 @@
 const path = require("path");
 const { z } = require("zod");
 const { parseBool } = require("./lib/parseBool");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+const envPath = path.join(__dirname, "..", ".env");
+const platformPort = process.env.PORT;
+const platformNodeEnv = process.env.NODE_ENV;
+require("dotenv").config({ path: envPath });
+if (platformPort) process.env.PORT = platformPort;
+if (platformNodeEnv) process.env.NODE_ENV = platformNodeEnv;
 const schema = z.object({
-  PORT: z.coerce.number().default(3847),
+  PORT: z.coerce.number().optional(),
+  HOST: z.string().default("0.0.0.0"),
   APP_SECRET: z.string().min(16).default("change-me-in-production-key"),
   DB_PATH: z.string().default("./data/app.db"),
   STORAGE_PATH: z.string().default("./storage/emails"),
@@ -25,7 +31,8 @@ if (!parsed.success) {
 }
 const root = path.join(__dirname, "..");
 const config = {
-  port: parsed.data.PORT,
+  port: parsed.data.PORT || 3847,
+  host: parsed.data.HOST,
   appSecret: parsed.data.APP_SECRET,
   dbPath: path.resolve(root, parsed.data.DB_PATH),
   storagePath: path.resolve(root, parsed.data.STORAGE_PATH),

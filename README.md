@@ -46,6 +46,19 @@ Set `ADMIN_PASSWORD` in `.env` to protect the dashboard — all pages require si
 
 On Hostinger or any reverse-proxy host, keep `TRUST_PROXY=1` (default). If IMAP tests fail with certificate errors, set `IMAP_TLS_INSECURE=true`.
 
+## Hostinger Deployment
+
+1. In hPanel → **Websites → Node.js**, set:
+   - **Application startup file:** `server.js`
+   - **Node.js version:** 18.x
+   - **Run script:** `npm start`
+2. Add environment variables in hPanel (do **not** set `PORT` — Hostinger assigns it automatically).
+3. Required variables: `APP_SECRET`, `ADMIN_PASSWORD`, `TRUST_PROXY=1`
+4. After deploy, open **Runtime logs** in hPanel if you see 503 — look for `[startup]` messages.
+5. Health check URL: `https://your-domain/health` should return `{"ok":true}`.
+
+If you use a `.env` file on the server, remove `PORT=3847` from it so Hostinger's assigned port is used.
+
 ## Run
 
 ```powershell

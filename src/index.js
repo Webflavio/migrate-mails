@@ -3,6 +3,7 @@ const path = require("path");
 const rateLimit = require("express-rate-limit");
 const config = require("./config");
 const { initDb } = require("./db");
+const { ensureAppDirs } = require("./lib/ensureDirs");
 const errorHandler = require("./middleware/errorHandler");
 const { startJobRunner } = require("./services/jobRunner");
 const exportService = require("./services/export");
@@ -17,12 +18,30 @@ const backupsRoutes = require("./routes/backups");
 const authRoutes = require("./routes/auth");
 const { requireAuth } = require("./middleware/auth");
 const { clearSessionCookie } = require("./lib/session");
+function startListening(app) {
+  if (typeof PhusionPassenger !== "undefined") {
+    app.listen("passenger", () => {
+      console.log("Email Backup Manager ready (Phusion Passenger)");
+    });
+    return;
+  }
+  app.listen(config.port, config.host, () => {
+    console.log(`Email Backup Manager listening on ${config.host}:${config.port}`);
+  });
+}
 async function main() {
+  console.log("[startup] Ensuring data directories...");
+  ensureAppDirs();
+  console.log("[startup] Initializing database...");
   await initDb();
+  console.log("[startup] Creating Express app...");
   const app = express();
   app.set("trust proxy", config.trustProxy);
   app.set("view engine", "ejs");
   app.set("views", path.join(__dirname, "views"));
+  app.get("/health", (req, res) => {
+    res.status(200).json({ ok: true, service: "email-backup-manager" });
+  });
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
   app.use("/public", express.static(path.join(__dirname, "..", "public")));
@@ -50,13 +69,16 @@ async function main() {
   app.use("/settings", settingsRoutes);
   app.use("/backups", backupsRoutes);
   app.use(errorHandler);
-  exportService.cleanupOldExports();
+  try {
+    exportService.cleanupOldExports();
+  } catch (err) {
+    console.warn("[startup] Export cleanup skipped:", err.message);
+  }
   startJobRunner(2000);
-  app.listen(config.port, () => {
-    console.log(`Email Backup Manager running at http://localhost:${config.port}`);
-  });
+  console.log("[startup] Starting HTTP server...");
+  startListening(app);
 }
 main().catch((err) => {
-  console.error(err);
+  console.error("[startup] Failed to start application:", err);
   process.exit(1);
 });

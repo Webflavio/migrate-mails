@@ -73,7 +73,10 @@ function getDb() {
 async function initDb() {
   if (sqlDb) return wrapDb(sqlDb);
   fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
-  SQL = await initSqlJs();
+  const sqlDist = path.dirname(require.resolve("sql.js/dist/sql-wasm.js"));
+  SQL = await initSqlJs({
+    locateFile: (file) => path.join(sqlDist, file),
+  });
   if (fs.existsSync(config.dbPath)) {
     const fileBuffer = fs.readFileSync(config.dbPath);
     sqlDb = new SQL.Database(fileBuffer);

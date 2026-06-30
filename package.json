@@ -2,10 +2,10 @@
   "name": "email-backup-manager",
   "version": "1.0.0",
   "description": "Node.js email backup, export, and migration manager",
-  "main": "src/index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "start": "node server.js",
+    "dev": "node --watch server.js",
     "test": "node --test tests/lib.test.js tests/repos.test.js",
     "index-legacy": "node src/cli/indexLegacy.js"
   },
