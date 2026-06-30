@@ -38,8 +38,8 @@ function formatDbError(err, mysqlConfig) {
     return new Error(
       `MySQL login failed for user '${mysqlConfig.user}'@${host}. ` +
       "The password or username is wrong, or the user is not linked to the database. " +
-      "In hPanel → Databases → Management: reset the MySQL user password, confirm MYSQL_USER is the username (not only the database name), " +
-      "assign the user to MYSQL_DATABASE with All Privileges, then update MYSQL_PASSWORD in Node.js env vars and redeploy."
+      "In hPanel → Databases → Management: reset the MySQL user password, confirm the username in MYSQL_URL is correct, " +
+      "assign that user to the database with All Privileges, then update MYSQL_URL in Node.js env vars and redeploy."
     );
   }
   if (err.code === "ER_BAD_DB_ERROR") {
@@ -49,7 +49,7 @@ function formatDbError(err, mysqlConfig) {
   }
   if (err.code === "ECONNREFUSED") {
     return new Error(
-      `Could not connect to MySQL at ${host}:${mysqlConfig.port}. Check MYSQL_HOST and MYSQL_PORT in your environment variables.`
+      `Could not connect to MySQL at ${host}:${mysqlConfig.port}. Check the host and port in MYSQL_URL.`
     );
   }
   return err;

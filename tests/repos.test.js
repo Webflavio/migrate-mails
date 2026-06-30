@@ -7,14 +7,16 @@ let tempDir;
 let skipRepos = false;
 before(async () => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mailvault-"));
-  process.env.MYSQL_DATABASE = process.env.MYSQL_DATABASE || `mailvault_test_${Date.now()}`;
+  const dbName = `mailvault_test_${Date.now()}`;
+  if (!process.env.MYSQL_URL) {
+    process.env.MYSQL_URL = `mysql://root@localhost:3306/${dbName}`;
+  }
   process.env.STORAGE_PATH = path.join(tempDir, "storage");
   process.env.EXPORT_PATH = path.join(tempDir, "exports");
   process.env.APP_SECRET = "test-secret-key-123456";
   process.env.ADMIN_PASSWORD = "testpass";
-  if (!process.env.MYSQL_HOST) process.env.MYSQL_HOST = "localhost";
-  if (!process.env.MYSQL_USER) process.env.MYSQL_USER = "root";
   delete require.cache[require.resolve("../src/config")];
+  delete require.cache[require.resolve("../src/lib/mysqlConfig")];
   delete require.cache[require.resolve("../src/db/index")];
   const dbModule = require("../src/db/index");
   try {
@@ -24,7 +26,7 @@ before(async () => {
       skipRepos = true;
       return;
     }
-    if (/Could not connect to MySQL/.test(err.message || "")) {
+    if (/Could not connect to MySQL|Invalid MYSQL_URL|MySQL configuration incomplete/.test(err.message || "")) {
       skipRepos = true;
       return;
     }

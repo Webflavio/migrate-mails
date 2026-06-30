@@ -30,11 +30,7 @@ Copy or edit `.env`:
 PORT=3847
 APP_SECRET=change-me-to-a-long-random-secret
 ADMIN_PASSWORD=your-dashboard-password
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=your-mysql-password
-MYSQL_DATABASE=mailvault
+MYSQL_URL=mysql://root:your-mysql-password@localhost:3306/mailvault
 STORAGE_PATH=./storage/emails
 EXPORT_PATH=./exports
 LEGACY_BACKUP_PATH=./backup
@@ -68,13 +64,25 @@ On Hostinger or any reverse-proxy host, keep `TRUST_PROXY=1` (default). If IMAP 
    - **Run script:** `npm start`
 3. Add environment variables in hPanel (do **not** set `PORT` — Hostinger assigns it automatically):
    - `APP_SECRET`, `ADMIN_PASSWORD`, `TRUST_PROXY=1`
-   - `MYSQL_HOST=localhost` (important: use `localhost`, **not** `127.0.0.1` on Hostinger)
-   - `MYSQL_PORT=3306`
-   - `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`
+   - `MYSQL_URL=mysql://USER:PASSWORD@localhost:3306/DATABASE`
 4. After deploy, open **Runtime logs** in hPanel if you see 503 — look for `[startup]` messages.
 5. Health check URL: `https://your-domain/health` should return `{"ok":true}`.
 
 If you use a `.env` file on the server, remove `PORT=3847` from it so Hostinger's assigned port is used.
+
+**MYSQL_URL format:**
+
+```env
+MYSQL_URL=mysql://USERNAME:PASSWORD@localhost:3306/DATABASE_NAME
+```
+
+Example:
+
+```env
+MYSQL_URL=mysql://u871337011_mail:MyPass123@localhost:3306/u871337011_mail
+```
+
+If the password contains special characters (`@`, `#`, `/`, etc.), URL-encode it. For example, `P@ss#1` becomes `P%40ss%231`.
 
 This app uses the pure JavaScript `mysql` driver (no native compilation), so it installs cleanly on Hostinger shared hosting without `node-gyp` or `make`.
 

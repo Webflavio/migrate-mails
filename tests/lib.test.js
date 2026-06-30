@@ -38,3 +38,17 @@ test("resolveDataPath uses persistent data root on hosted deploys", () => {
     path.resolve(root, "data/app.db")
   );
 });
+const { parseMysqlUrl, redactMysqlUrl } = require("../src/lib/mysqlConfig");
+test("parseMysqlUrl reads mysql connection string", () => {
+  const cfg = parseMysqlUrl("mysql://dbuser:sec%40ret@localhost:3306/mailvault");
+  assert.equal(cfg.user, "dbuser");
+  assert.equal(cfg.password, "sec@ret");
+  assert.equal(cfg.host, "localhost");
+  assert.equal(cfg.port, 3306);
+  assert.equal(cfg.database, "mailvault");
+});
+test("redactMysqlUrl hides credentials", () => {
+  const redacted = redactMysqlUrl("mysql://dbuser:secret@localhost:3306/mailvault");
+  assert.match(redacted, /mysql:\/\//);
+  assert.doesNotMatch(redacted, /secret/);
+});

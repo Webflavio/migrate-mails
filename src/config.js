@@ -3,7 +3,7 @@ const path = require("path");
 const { z } = require("zod");
 const { parseBool } = require("./lib/parseBool");
 const { resolveDataPath } = require("./lib/paths");
-const { normalizeMysqlConfig, validateMysqlConfig } = require("./lib/mysqlConfig");
+const { parseMysqlUrl, normalizeMysqlConfig, validateMysqlConfig } = require("./lib/mysqlConfig");
 const envPath = path.join(__dirname, "..", ".env");
 const platformPort = process.env.PORT;
 const platformNodeEnv = process.env.NODE_ENV;
@@ -20,12 +20,7 @@ const schema = z.object({
   HOST: z.string().default("0.0.0.0"),
   DATA_DIR: z.string().optional(),
   APP_SECRET: z.string().min(16).default("change-me-in-production-key"),
-  MYSQL_HOST: z.string().default("localhost"),
-  MYSQL_PORT: z.coerce.number().default(3306),
-  MYSQL_USER: z.string().default("root"),
-  MYSQL_PASSWORD: z.string().default(""),
-  MYSQL_DATABASE: z.string().min(1).default("mailvault"),
-  MYSQL_SOCKET: z.string().optional(),
+  MYSQL_URL: z.string().min(1).default("mysql://root@localhost:3306/mailvault"),
   STORAGE_PATH: z.string().optional(),
   EXPORT_PATH: z.string().optional(),
   LEGACY_BACKUP_PATH: z.string().default("./backup"),
@@ -58,20 +53,20 @@ function getDataRoot() {
 }
 const dataRoot = getDataRoot();
 const pathOpts = { root, dataRoot };
-const mysql = normalizeMysqlConfig({
-  host: parsed.data.MYSQL_HOST,
-  port: parsed.data.MYSQL_PORT,
-  user: parsed.data.MYSQL_USER,
-  password: parsed.data.MYSQL_PASSWORD,
-  database: parsed.data.MYSQL_DATABASE,
-  socketPath: parsed.data.MYSQL_SOCKET,
-}, isHosted);
+let mysql;
+try {
+  mysql = normalizeMysqlConfig(parseMysqlUrl(parsed.data.MYSQL_URL));
+} catch (err) {
+  console.error("[startup] Invalid MYSQL_URL:", err.message);
+  process.exit(1);
+}
 validateMysqlConfig(mysql, isHosted);
 const config = {
   port: parsed.data.PORT || 3847,
   host: parsed.data.HOST,
   dataRoot,
   appSecret: parsed.data.APP_SECRET,
+  mysqlUrl: parsed.data.MYSQL_URL,
   mysql,
   storagePath: resolveDataPath({ ...pathOpts, setting: parsed.data.STORAGE_PATH, defaultRel: "./storage/emails", leaf: "emails" }),
   exportPath: resolveDataPath({ ...pathOpts, setting: parsed.data.EXPORT_PATH, defaultRel: "./exports", leaf: "exports" }),
