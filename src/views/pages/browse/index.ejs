@@ -5,8 +5,8 @@
   <label>Search<input name="q" value="<%= q %>" placeholder="subject, sender, text"></label>
   <label>From<input type="date" name="from" value="<%= filters && filters.fromDate ? filters.fromDate.slice(0,10) : '' %>"></label>
   <label>To<input type="date" name="to" value="<%= filters && filters.toDate ? filters.toDate.slice(0,10) : '' %>"></label>
-  <label style="grid-column: span 5"><input type="checkbox" name="attachments" value="1" <%= filters && filters.hasAttachments ? 'checked' : '' %>> With attachments only</label>
-  <div class="btn-row" style="grid-column: span 5"><button class="btn">Search</button></div>
+  <label class="filters-span"><input type="checkbox" name="attachments" value="1" <%= filters && filters.hasAttachments ? 'checked' : '' %>> With attachments only</label>
+  <div class="btn-row filters-span"><button type="submit" class="btn">Search</button></div>
 </form>
 <div class="card">
   <div class="table-wrap">

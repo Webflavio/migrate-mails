@@ -4,14 +4,15 @@
 <div class="grid grid-2">
   <div class="card">
     <h3><%= account.label %></h3>
-    <p style="color:var(--muted)"><%= account.username %> · <%= account.imap_host %>:<%= account.imap_port %></p>
+    <p style="color:var(--cu-text-secondary)"><%= account.username %> · <%= account.imap_host %>:<%= account.imap_port %></p>
     <p>Status: <span class="badge <%= statusClass(account.status) %>"><%= account.status %></span></p>
     <p>Last backup: <%= formatDate(account.last_backup_at) %></p>
-    <div class="backup-summary" style="margin-top:14px">
-      <div class="stat-pill"><span>Backed up</span><strong><%= (backupStats.messages || 0).toLocaleString() %></strong></div>
-      <div class="stat-pill"><span>Storage</span><strong><%= formatBytes(backupStats.storageBytes || backupStats.bytes || 0) %></strong></div>
+    <% var stats = backupStats || { messages: 0, bytes: 0, storageBytes: 0 }; %>
+    <div class="backup-summary cols-2" style="margin-top:14px">
+      <div class="stat-pill"><span>Backed up</span><strong><%= Number(stats.messages || 0).toLocaleString() %></strong></div>
+      <div class="stat-pill"><span>Storage</span><strong><%= formatBytes(stats.storageBytes || stats.bytes || 0) %></strong></div>
     </div>
-    <div class="btn-row" style="margin-top:16px">
+    <div class="btn-row btn-row-inline">
       <form method="post" action="/accounts/<%= account.id %>/test"><button class="btn secondary">Test Connection</button></form>
       <a class="btn" href="/accounts/<%= account.id %>/backup">Run Backup</a>
       <form method="post" action="/accounts/<%= account.id %>/index-legacy"><button class="btn secondary">Index Legacy Backup</button></form>
@@ -53,14 +54,14 @@
           <td><%= folder.included ? 'Yes' : 'No' %></td>
           <td><%= formatDate(folder.last_synced_at) %></td>
           <td>
-            <div class="btn-row" style="margin:0">
+            <div class="actions-cell">
               <form method="post" action="/accounts/<%= account.id %>/folders/<%= folder.id %>/toggle">
                 <input type="hidden" name="included" value="<%= folder.included ? '0' : '1' %>">
-                <button class="btn secondary" style="padding:6px 10px;font-size:12px"><%= folder.included ? 'Exclude' : 'Include' %></button>
+                <button type="submit" class="btn secondary btn-sm"><%= folder.included ? 'Exclude' : 'Include' %></button>
               </form>
               <% if (folder.backed_up_count > 0) { %>
               <form method="post" action="/accounts/<%= account.id %>/folders/<%= folder.id %>/clear" onsubmit="return confirm('Delete all backed-up messages in <%= folder.remote_name %>?')">
-                <button class="btn danger" style="padding:6px 10px;font-size:12px">Clear</button>
+                <button type="submit" class="btn danger btn-sm">Clear</button>
               </form>
               <% } %>
             </div>
@@ -76,8 +77,8 @@
   <div class="maintenance-grid">
     <form method="post" action="/accounts/<%= account.id %>/delete-backup" onsubmit="return confirm('Delete ALL backed-up emails for this account? The IMAP account settings will be kept.')">
       <p><strong>Delete backup data</strong></p>
-      <p class="muted-sm">Removes <%= (backupStats.messages || 0).toLocaleString() %> message(s) and files. Account stays.</p>
-      <button class="btn danger" <%= backupStats.messages ? '' : 'disabled' %>>Delete Backup</button>
+      <p class="muted-sm">Removes <%= Number(stats.messages || 0).toLocaleString() %> message(s) and files. Account stays.</p>
+      <button type="submit" class="btn danger" <%= stats.messages ? '' : 'disabled' %>>Delete Backup</button>
     </form>
     <form method="post" action="/accounts/<%= account.id %>/delete" onsubmit="return confirm('Delete this account and ALL its data permanently?')">
       <p><strong>Delete account</strong></p>

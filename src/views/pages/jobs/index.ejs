@@ -8,6 +8,7 @@
       <table>
         <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Progress</th><th>Created</th><th></th></tr></thead>
         <tbody>
+          <% if (!jobs.length) { %><tr><td colspan="6" class="empty">No jobs yet.</td></tr><% } %>
           <% jobs.forEach(function(job){ %>
           <tr class="<%= job.status === 'running' || job.status === 'pending' ? 'row-active' : '' %>">
             <td><a href="/jobs/<%= job.id %>"><%= job.id %></a></td>
@@ -18,7 +19,7 @@
             <td>
               <% if (job.status !== 'running') { %>
               <form method="post" action="/jobs/<%= job.id %>/delete" onsubmit="return confirm('Delete this job?')">
-                <button class="btn secondary" style="padding:4px 8px;font-size:12px">Delete</button>
+                <button type="submit" class="btn secondary btn-sm">Delete</button>
               </form>
               <% } %>
             </td>

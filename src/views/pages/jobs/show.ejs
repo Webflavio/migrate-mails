@@ -7,7 +7,7 @@
     <div class="progress-bar"><div class="progress-fill" id="jobProgressBar" style="width:<%= job.progress %>%"></div></div>
     <p><strong>Started:</strong> <span id="jobStarted"><%= formatDate(job.started_at) %></span></p>
     <p><strong>Finished:</strong> <span id="jobFinished"><%= formatDate(job.finished_at) %></span></p>
-    <div class="btn-row" id="jobActions">
+    <div class="btn-row btn-row-inline" id="jobActions">
       <% if (job.status === 'pending' || job.status === 'running') { %>
       <button type="button" class="btn danger" id="btnCancelJob">Cancel Job</button>
       <% } else { %>

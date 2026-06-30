@@ -2,15 +2,19 @@
 <% if (saved) { %><div class="alert ok">Settings saved.</div><% } %>
 <% if (notice) { %><div class="alert ok"><%= notice %></div><% } %>
 <% if (error) { %><div class="alert error"><%= error %></div><% } %>
-<form class="card form-grid" method="post" action="/settings">
-  <h3>Backup &amp; IMAP</h3>
-  <label>Max Message Size (MB)<input name="max_message_mb" type="number" min="1" max="500" value="<%= settings.max_message_mb || (runtime.maxMessageBytes / 1024 / 1024) %>"></label>
-  <label>IMAP Timeout (ms)<input name="imap_timeout_ms" type="number" min="10000" step="1000" value="<%= settings.imap_timeout_ms || runtime.imapTimeoutMs %>"></label>
-  <label>Job Concurrency<input name="job_concurrency" type="number" min="1" max="5" value="<%= settings.job_concurrency || runtime.jobConcurrency %>"></label>
-  <h3 style="margin-top:8px">Retention</h3>
-  <label>Export Retention (days)<input name="export_retention_days" type="number" min="1" value="<%= settings.export_retention_days || runtime.exportRetentionDays %>"></label>
-  <label>Backup Run History (days)<input name="backup_run_retention_days" type="number" min="7" value="<%= settings.backup_run_retention_days || runtime.backupRunRetentionDays %>"></label>
-  <label>Job History (days)<input name="job_retention_days" type="number" min="7" value="<%= settings.job_retention_days || runtime.jobRetentionDays %>"></label>
+<form class="card form-grid form-grid-wide" method="post" action="/settings">
+  <h3 class="form-section-title">Backup &amp; IMAP</h3>
+  <div class="grid grid-2">
+    <label>Max Message Size (MB)<input name="max_message_mb" type="number" min="1" max="500" value="<%= settings.max_message_mb || (runtime.maxMessageBytes / 1024 / 1024) %>"></label>
+    <label>IMAP Timeout (ms)<input name="imap_timeout_ms" type="number" min="10000" step="1000" value="<%= settings.imap_timeout_ms || runtime.imapTimeoutMs %>"></label>
+    <label>Job Concurrency<input name="job_concurrency" type="number" min="1" max="5" value="<%= settings.job_concurrency || runtime.jobConcurrency %>"></label>
+  </div>
+  <h3 class="form-section-title">Retention</h3>
+  <div class="grid grid-3">
+    <label>Export Retention (days)<input name="export_retention_days" type="number" min="1" value="<%= settings.export_retention_days || runtime.exportRetentionDays %>"></label>
+    <label>Backup Run History (days)<input name="backup_run_retention_days" type="number" min="7" value="<%= settings.backup_run_retention_days || runtime.backupRunRetentionDays %>"></label>
+    <label>Job History (days)<input name="job_retention_days" type="number" min="7" value="<%= settings.job_retention_days || runtime.jobRetentionDays %>"></label>
+  </div>
   <div class="btn-row"><button class="btn">Save Settings</button></div>
 </form>
 <div class="card" style="margin-top:18px">
@@ -19,35 +23,35 @@
     <div class="stat-pill"><span>Email storage</span><strong><%= storageSize %></strong></div>
     <div class="stat-pill"><span>Exports</span><strong><%= exportSize %></strong></div>
     <div class="stat-pill"><span>Jobs in DB</span><strong><%= jobCount %></strong></div>
-    <div class="stat-pill"><span>Database</span><strong><%= config.dbPath %></strong></div>
+    <div class="stat-pill"><span>Database file</span><span class="path-value"><%= config.dbPath %></span></div>
   </div>
-  <p style="color:var(--muted);font-size:13px;margin:12px 0 0">Paths: <%= config.storagePath %> · <%= config.exportPath %></p>
+  <p style="color:var(--cu-text-secondary);font-size:13px;margin:12px 0 0">Storage: <%= config.storagePath %> · Exports: <%= config.exportPath %></p>
 </div>
 <div class="card danger-zone" style="margin-top:18px">
   <h3>Maintenance</h3>
-  <p style="color:var(--muted);font-size:14px;margin:0 0 16px">These actions cannot be undone. Backups and exports are removed from disk and the database.</p>
+  <p class="muted-sm">These actions cannot be undone. Backups and exports are removed from disk and the database.</p>
   <div class="maintenance-grid">
     <form method="post" action="/settings/maintenance/clear-exports" onsubmit="return confirm('Delete all export files?')">
       <p><strong>Clear exports</strong></p>
       <p class="muted-sm">Remove all generated ZIP/MBOX files (<%= exportSize %>).</p>
-      <button class="btn danger">Clear Exports</button>
+      <button type="submit" class="btn danger">Clear Exports</button>
     </form>
     <form method="post" action="/settings/maintenance/purge-jobs">
       <input type="hidden" name="days" value="<%= settings.job_retention_days || runtime.jobRetentionDays %>">
       <p><strong>Purge old jobs</strong></p>
       <p class="muted-sm">Delete completed/failed jobs older than retention setting.</p>
-      <button class="btn danger">Purge Old Jobs</button>
+      <button type="submit" class="btn danger">Purge Old Jobs</button>
     </form>
     <form method="post" action="/settings/maintenance/purge-backup-runs">
       <input type="hidden" name="days" value="<%= settings.backup_run_retention_days || runtime.backupRunRetentionDays %>">
       <p><strong>Purge backup history</strong></p>
       <p class="muted-sm">Remove old backup run records (not the emails themselves).</p>
-      <button class="btn danger">Purge Run History</button>
+      <button type="submit" class="btn danger">Purge Run History</button>
     </form>
     <form method="post" action="/settings/maintenance/purge-all-jobs" onsubmit="return confirm('Delete ALL completed, failed, and cancelled jobs?')">
       <p><strong>Clear job list</strong></p>
       <p class="muted-sm">Remove every finished job from the Jobs page.</p>
-      <button class="btn danger">Clear All Finished Jobs</button>
+      <button type="submit" class="btn danger">Clear All Finished Jobs</button>
     </form>
   </div>
 </div>

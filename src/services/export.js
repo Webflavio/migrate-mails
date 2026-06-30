@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const archiver = require("archiver");
 const config = require("../config");
+const { getRuntimeSettings } = require("../lib/runtimeConfig");
 const { readRawMessage } = require("../lib/storage");
 const messagesRepo = require("../repos/messages");
 const foldersRepo = require("../repos/folders");
@@ -64,7 +65,7 @@ async function exportMbox(accountId, options, jobUpdate) {
 }
 function cleanupOldExports() {
   ensureExportDir();
-  const maxAge = config.exportRetentionDays * 24 * 60 * 60 * 1000;
+  const maxAge = getRuntimeSettings().exportRetentionDays * 24 * 60 * 60 * 1000;
   const now = Date.now();
   for (const file of fs.readdirSync(config.exportPath)) {
     const full = path.join(config.exportPath, file);

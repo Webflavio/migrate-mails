@@ -16,11 +16,11 @@
           <td><%= (account.message_count || 0).toLocaleString() %></td>
           <td><%= account.folder_count || 0 %></td>
           <td>
-            <div class="btn-row" style="margin:0">
-              <a class="btn secondary" href="/accounts/<%= account.id %>/backup">Backup</a>
+            <div class="actions-cell">
+              <a class="btn secondary btn-sm" href="/accounts/<%= account.id %>/backup">Backup</a>
               <% if (account.message_count > 0) { %>
               <form method="post" action="/backups/account/<%= account.id %>/delete-data" onsubmit="return confirm('Delete ALL backed-up emails for <%= account.label %>? The account will be kept.')">
-                <button class="btn danger">Delete Backup</button>
+                <button type="submit" class="btn danger btn-sm">Delete Backup</button>
               </form>
               <% } %>
             </div>
@@ -50,7 +50,7 @@
           <td><%= formatDate(run.finished_at) %></td>
           <td>
             <form method="post" action="/backups/runs/<%= run.id %>/delete" onsubmit="return confirm('Delete this run record? Emails are not removed.')">
-              <button class="btn secondary" style="padding:6px 10px;font-size:12px">Delete Log</button>
+              <button type="submit" class="btn secondary btn-sm">Delete Log</button>
             </form>
           </td>
         </tr>

@@ -48,7 +48,14 @@ async function main() {
   });
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
-  app.use("/public", express.static(path.join(__dirname, "..", "public")));
+  const publicDir = path.join(__dirname, "..", "public");
+  const staticOpts = { maxAge: config.isProduction ? "7d" : 0 };
+  app.use(`${config.basePath}/assets`, express.static(publicDir, staticOpts));
+  app.get([`${config.basePath}/assets/css/app.css`, `${config.basePath}/public/css/app.css`], (req, res) => {
+    res.type("text/css");
+    res.sendFile(path.join(publicDir, "css", "app.css"));
+  });
+  app.use(`${config.basePath}/public`, express.static(publicDir, staticOpts));
   app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
   app.locals.formatDate = (value) => {
     if (!value) return "—";
@@ -59,6 +66,7 @@ async function main() {
     return map[status] || "neutral";
   };
   app.locals.formatBytes = formatBytes;
+  app.locals.asset = (file) => `${config.basePath}/assets/${String(file || "").replace(/^\/+/, "")}`;
   app.use("/", authRoutes);
   app.all("/logout", (req, res) => {
     clearSessionCookie(res);

@@ -23,6 +23,7 @@ const schema = z.object({
   IMAP_TIMEOUT_MS: z.coerce.number().default(120000),
   IMAP_TLS_INSECURE: z.string().optional(),
   TRUST_PROXY: z.string().optional(),
+  BASE_PATH: z.string().optional(),
   NODE_ENV: z.string().optional(),
   ADMIN_PASSWORD: z.string().min(4).default("changeme"),
 });
@@ -67,6 +68,7 @@ const config = {
   isProduction: parsed.data.NODE_ENV === "production",
   isHosted,
   adminPassword: parsed.data.ADMIN_PASSWORD,
+  basePath: (parsed.data.BASE_PATH || "").replace(/\/+$/, ""),
   root,
 };
 module.exports = config;
