@@ -1,17 +1,13 @@
 const { getDb } = require("../db");
+const insertSql = `
+  INSERT OR IGNORE INTO messages (account_id, folder_id, uid, message_id, subject, from_addr, to_addr, cc_addr, bcc_addr,
+    date_sent, size_bytes, flags, raw_path, content_hash, has_attachments)
+  VALUES (@account_id, @folder_id, @uid, @message_id, @subject, @from_addr, @to_addr, @cc_addr, @bcc_addr,
+    @date_sent, @size_bytes, @flags, @raw_path, @content_hash, @has_attachments)
+`;
 function insertMessage(data) {
-  try {
-    const info = getDb().prepare(`
-      INSERT INTO messages (account_id, folder_id, uid, message_id, subject, from_addr, to_addr, cc_addr, bcc_addr,
-        date_sent, size_bytes, flags, raw_path, content_hash, has_attachments)
-      VALUES (@account_id, @folder_id, @uid, @message_id, @subject, @from_addr, @to_addr, @cc_addr, @bcc_addr,
-        @date_sent, @size_bytes, @flags, @raw_path, @content_hash, @has_attachments)
-    `).run(data);
-    return { id: info.lastInsertRowid, inserted: true };
-  } catch (err) {
-    if (String(err.message).includes("UNIQUE")) return { id: null, inserted: false };
-    throw err;
-  }
+  const info = getDb().prepare(insertSql).run(data);
+  return { id: info.changes ? info.lastInsertRowid : null, inserted: info.changes > 0 };
 }
 function insertBody(messageId, body) {
   getDb().prepare(`
@@ -37,6 +33,35 @@ function insertAttachment(messageId, attachment) {
     INSERT INTO attachments (message_id, filename, content_type, size_bytes, storage_path)
     VALUES (?, ?, ?, ?, ?)
   `).run(messageId, attachment.filename, attachment.contentType, attachment.sizeBytes, attachment.storagePath || null);
+}
+function insertMessageBatch(items) {
+  if (!items.length) return 0;
+  const db = getDb();
+  const insertMessageStmt = db.prepare(insertSql);
+  const insertBodyStmt = db.prepare(`
+    INSERT INTO message_bodies (message_id, text_preview, html_available, search_text)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(message_id) DO UPDATE SET text_preview = excluded.text_preview,
+      html_available = excluded.html_available, search_text = excluded.search_text
+  `);
+  const insertAttachmentStmt = db.prepare(`
+    INSERT INTO attachments (message_id, filename, content_type, size_bytes, storage_path)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  return db.transaction((records) => {
+    let inserted = 0;
+    for (const item of records) {
+      const info = insertMessageStmt.run(item.data);
+      if (!info.changes) continue;
+      inserted += 1;
+      const body = item.body || {};
+      insertBodyStmt.run(info.lastInsertRowid, body.textPreview, body.htmlAvailable, body.searchText);
+      for (const att of item.attachments || []) {
+        insertAttachmentStmt.run(info.lastInsertRowid, att.filename, att.contentType, att.sizeBytes, att.storagePath || null);
+      }
+    }
+    return inserted;
+  })(items);
 }
 function getMessage(id) {
   return getDb().prepare(`
@@ -112,6 +137,6 @@ function totalCount() {
   return getDb().prepare("SELECT COUNT(*) AS total FROM messages").get().total;
 }
 module.exports = {
-  insertMessage, insertBody, insertAttachment, getMessage, getAttachments, searchMessages,
+  insertMessage, insertBody, insertAttachment, insertMessageBatch, getMessage, getAttachments, searchMessages,
   countMessages, listByFolder, existsByMessageId, existsByHash, listForExport, getMaxUid, totalCount,
 };

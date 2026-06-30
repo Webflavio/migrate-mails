@@ -71,6 +71,15 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
           let count = 0;
           let newInFolder = 0;
           let folderBytes = 0;
+          const pendingMessages = [];
+          const flushPending = () => {
+            if (!pendingMessages.length) return 0;
+            const inserted = messagesRepo.insertMessageBatch(pendingMessages);
+            pendingMessages.length = 0;
+            newInFolder += inserted;
+            newMessages += inserted;
+            return inserted;
+          };
           for await (const msg of client.fetch(range, { uid: true, source: true, flags: true, envelope: true, bodyStructure: true })) {
             assertNotCancelled(jobId);
             count += 1;
@@ -84,7 +93,6 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
             }
             folderBytes += buffer.length;
             const contentHash = hashContent(buffer);
-            if (messagesRepo.existsByHash(accountId, folder.id, contentHash)) continue;
             let meta;
             try {
               meta = metadataFromFetch(msg);
@@ -92,31 +100,31 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
               meta = await parseMessage(buffer);
             }
             const rawPath = saveRawMessage(accountId, localName, contentHash, buffer);
-            const result = messagesRepo.insertMessage({
-              account_id: accountId,
-              folder_id: folder.id,
-              uid: msg.uid,
-              message_id: meta.messageId,
-              subject: meta.subject,
-              from_addr: meta.from,
-              to_addr: meta.to,
-              cc_addr: meta.cc,
-              bcc_addr: meta.bcc,
-              date_sent: meta.dateSent,
-              size_bytes: meta.sizeBytes || buffer.length,
-              flags: JSON.stringify(Array.from(msg.flags || [])),
-              raw_path: rawPath,
-              content_hash: contentHash,
-              has_attachments: meta.hasAttachments || (meta.attachments && meta.attachments.length ? 1 : 0),
+            pendingMessages.push({
+              data: {
+                account_id: accountId,
+                folder_id: folder.id,
+                uid: msg.uid,
+                message_id: meta.messageId,
+                subject: meta.subject,
+                from_addr: meta.from,
+                to_addr: meta.to,
+                cc_addr: meta.cc,
+                bcc_addr: meta.bcc,
+                date_sent: meta.dateSent,
+                size_bytes: meta.sizeBytes || buffer.length,
+                flags: JSON.stringify(Array.from(msg.flags || [])),
+                raw_path: rawPath,
+                content_hash: contentHash,
+                has_attachments: meta.hasAttachments || (meta.attachments && meta.attachments.length ? 1 : 0),
+              },
+              body: meta,
+              attachments: meta.attachments || [],
             });
-            if (result.inserted) {
-              messagesRepo.insertBody(result.id, meta);
-              for (const att of meta.attachments || []) messagesRepo.insertAttachment(result.id, att);
-              newInFolder += 1;
-              newMessages += 1;
-            }
             totalMessages += 1;
-            if (count % 25 === 0) {
+            if (pendingMessages.length >= 100) flushPending();
+            if (count % 100 === 0) {
+              flushPending();
               log(`${remote.name}: processed ${count} message(s), ${newInFolder} new`);
               if (jobUpdate) {
                 const progress = Math.round((folderIndex / totalFolders) * 100);
@@ -124,6 +132,7 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
               }
             }
           }
+          flushPending();
           log(`Finished ${remote.name}: ${count} fetched, ${newInFolder} new, ${formatBytes(folderBytes)}`);
           if (jobUpdate) {
             const progress = Math.round((folderIndex / totalFolders) * 100);
