@@ -30,7 +30,7 @@ Copy or edit `.env`:
 PORT=3847
 APP_SECRET=change-me-to-a-long-random-secret
 ADMIN_PASSWORD=your-dashboard-password
-MYSQL_HOST=127.0.0.1
+MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_USER=root
 MYSQL_PASSWORD=your-mysql-password
@@ -68,7 +68,7 @@ On Hostinger or any reverse-proxy host, keep `TRUST_PROXY=1` (default). If IMAP 
    - **Run script:** `npm start`
 3. Add environment variables in hPanel (do **not** set `PORT` — Hostinger assigns it automatically):
    - `APP_SECRET`, `ADMIN_PASSWORD`, `TRUST_PROXY=1`
-   - `MYSQL_HOST` (usually `localhost` or the host shown in hPanel)
+   - `MYSQL_HOST=localhost` (important: use `localhost`, **not** `127.0.0.1` on Hostinger)
    - `MYSQL_PORT=3306`
    - `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`
 4. After deploy, open **Runtime logs** in hPanel if you see 503 — look for `[startup]` messages.

@@ -12,6 +12,47 @@ function wrapPool(pool) {
   pool.getConnectionAsync = util.promisify(pool.getConnection.bind(pool));
   return pool;
 }
+function resolveMysqlHost(host) {
+  if (config.isHosted && (host === "127.0.0.1" || host === "::1")) return "localhost";
+  return host;
+}
+function buildPoolOptions(mysqlConfig) {
+  const opts = {
+    host: resolveMysqlHost(mysqlConfig.host),
+    port: mysqlConfig.port,
+    user: mysqlConfig.user,
+    password: mysqlConfig.password,
+    database: mysqlConfig.database,
+    waitForConnections: true,
+    connectionLimit: 10,
+    charset: "utf8mb4",
+    timezone: "Z",
+    multipleStatements: true,
+  };
+  if (mysqlConfig.socketPath) opts.socketPath = mysqlConfig.socketPath;
+  return opts;
+}
+function formatDbError(err, mysqlConfig) {
+  const host = resolveMysqlHost(mysqlConfig.host);
+  if (err.code === "ER_ACCESS_DENIED_ERROR") {
+    return new Error(
+      `MySQL login failed for user '${mysqlConfig.user}'@${host}. ` +
+      "Use MYSQL_HOST=localhost on Hostinger (not 127.0.0.1). " +
+      "Copy MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE exactly from hPanel → Databases → MySQL."
+    );
+  }
+  if (err.code === "ER_BAD_DB_ERROR") {
+    return new Error(
+      `MySQL database '${mysqlConfig.database}' does not exist. Create it in hPanel → Databases → MySQL first.`
+    );
+  }
+  if (err.code === "ECONNREFUSED") {
+    return new Error(
+      `Could not connect to MySQL at ${host}:${mysqlConfig.port}. Check MYSQL_HOST and MYSQL_PORT in your environment variables.`
+    );
+  }
+  return err;
+}
 function getPool() {
   if (state.pool) return state.pool;
   throw new Error("Database not initialized. Call initDb() first.");
@@ -56,20 +97,7 @@ async function transaction(fn) {
     conn.release();
   }
 }
-async function initDb() {
-  if (state.pool) return state.pool;
-  state.pool = wrapPool(mysql.createPool({
-    host: config.mysql.host,
-    port: config.mysql.port,
-    user: config.mysql.user,
-    password: config.mysql.password,
-    database: config.mysql.database,
-    waitForConnections: true,
-    connectionLimit: 10,
-    charset: "utf8mb4",
-    timezone: "Z",
-    multipleStatements: true,
-  }));
+async function bootstrapSchema() {
   const statements = schema.split(/;\s*\n/).map((part) => part.trim()).filter(Boolean);
   for (const stmt of statements) await query(stmt);
   await runMigrations(query);
@@ -85,7 +113,32 @@ async function initDb() {
       [key, value]
     );
   }
-  return state.pool;
+}
+async function initDb() {
+  if (state.pool) return state.pool;
+  const mysqlConfig = config.mysql;
+  const hostsToTry = [];
+  const primaryHost = resolveMysqlHost(mysqlConfig.host);
+  hostsToTry.push(primaryHost);
+  if (primaryHost !== "localhost" && mysqlConfig.host !== "localhost") hostsToTry.push("localhost");
+  let lastError;
+  for (const host of hostsToTry) {
+    if (state.pool) {
+      await util.promisify(state.pool.end.bind(state.pool))();
+      state.pool = null;
+    }
+    state.pool = wrapPool(mysql.createPool(buildPoolOptions({ ...mysqlConfig, host })));
+    try {
+      await bootstrapSchema();
+      return state.pool;
+    } catch (err) {
+      lastError = err;
+      await util.promisify(state.pool.end.bind(state.pool))();
+      state.pool = null;
+      if (err.code !== "ER_ACCESS_DENIED_ERROR" && err.code !== "ECONNREFUSED") break;
+    }
+  }
+  throw formatDbError(lastError, mysqlConfig);
 }
 async function closeDb() {
   if (state.pool) {

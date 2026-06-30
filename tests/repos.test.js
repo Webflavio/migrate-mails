@@ -12,7 +12,7 @@ before(async () => {
   process.env.EXPORT_PATH = path.join(tempDir, "exports");
   process.env.APP_SECRET = "test-secret-key-123456";
   process.env.ADMIN_PASSWORD = "testpass";
-  if (!process.env.MYSQL_HOST) process.env.MYSQL_HOST = "127.0.0.1";
+  if (!process.env.MYSQL_HOST) process.env.MYSQL_HOST = "localhost";
   if (!process.env.MYSQL_USER) process.env.MYSQL_USER = "root";
   delete require.cache[require.resolve("../src/config")];
   delete require.cache[require.resolve("../src/db/index")];
@@ -21,6 +21,10 @@ before(async () => {
     await dbModule.initDb();
   } catch (err) {
     if (["ECONNREFUSED", "ER_ACCESS_DENIED_ERROR", "ER_BAD_DB_ERROR", "PROTOCOL_CONNECTION_LOST"].includes(err.code)) {
+      skipRepos = true;
+      return;
+    }
+    if (/Could not connect to MySQL/.test(err.message || "")) {
       skipRepos = true;
       return;
     }
