@@ -58,12 +58,30 @@ function formatDbError(err, mysqlConfig) {
   }
   return err;
 }
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+function pad(n, len) {
+  return String(n).padStart(len || 2, "0");
+}
+function toMysqlDateTime(date) {
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ` +
+    `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}.${pad(date.getUTCMilliseconds(), 3)}`;
+}
+function normalizeParam(value) {
+  if (value instanceof Date) return toMysqlDateTime(value);
+  if (typeof value === "string" && ISO_DATETIME_RE.test(value)) return toMysqlDateTime(new Date(value));
+  if (Array.isArray(value)) return value.map(normalizeParam);
+  return value;
+}
+function normalizeParams(params) {
+  if (!Array.isArray(params)) return params;
+  return params.map(normalizeParam);
+}
 function getPool() {
   if (state.pool) return state.pool;
   throw new Error("Database not initialized. Call initDb() first.");
 }
 async function query(sql, params) {
-  const [rows] = await getPool().query(sql, params);
+  const [rows] = await getPool().query(sql, normalizeParams(params));
   return rows;
 }
 async function queryOne(sql, params) {
@@ -71,13 +89,13 @@ async function queryOne(sql, params) {
   return rows[0];
 }
 async function execute(sql, params) {
-  const [result] = await getPool().query(sql, params);
+  const [result] = await getPool().query(sql, normalizeParams(params));
   return { lastInsertRowid: Number(result.insertId), changes: result.affectedRows };
 }
 function connQuery(conn) {
   return {
     query: async (sql, params) => {
-      const [rows] = await conn.query(sql, params);
+      const [rows] = await conn.query(sql, normalizeParams(params));
       return rows;
     },
     queryOne: async (sql, params) => {
@@ -85,7 +103,7 @@ function connQuery(conn) {
       return rows[0];
     },
     execute: async (sql, params) => {
-      const [result] = await conn.query(sql, params);
+      const [result] = await conn.query(sql, normalizeParams(params));
       return { lastInsertRowid: Number(result.insertId), changes: result.affectedRows };
     },
   };
