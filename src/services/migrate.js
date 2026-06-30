@@ -5,23 +5,23 @@ const foldersRepo = require("../repos/folders");
 const messagesRepo = require("../repos/messages");
 const migrationsRepo = require("../repos/migrations");
 async function runMigration(migrationId, jobUpdate) {
-  const migration = migrationsRepo.getMigration(migrationId);
+  const migration = await migrationsRepo.getMigration(migrationId);
   if (!migration) throw new Error("Migration not found");
-  const sourceAccount = accountsRepo.getAccount(migration.source_account_id);
-  const targetAccount = accountsRepo.getAccount(migration.target_account_id);
+  const sourceAccount = await accountsRepo.getAccount(migration.source_account_id);
+  const targetAccount = await accountsRepo.getAccount(migration.target_account_id);
   const targetPassword = accountsRepo.getPassword(targetAccount);
   const folderMapping = migration.folder_mapping || {};
-  const sourceFolders = foldersRepo.listFolders(migration.source_account_id);
+  const sourceFolders = await foldersRepo.listFolders(migration.source_account_id);
   let total = 0;
   let migrated = 0;
   let skipped = 0;
   let errors = 0;
-  migrationsRepo.updateMigration(migrationId, { status: "running" });
+  await migrationsRepo.updateMigration(migrationId, { status: "running" });
   for (const folder of sourceFolders) {
-    const messages = messagesRepo.listByFolder(folder.id, 100000, 0);
+    const messages = await messagesRepo.listByFolder(folder.id, 100000, 0);
     total += messages.length;
   }
-  migrationsRepo.updateMigration(migrationId, { total_messages: total });
+  await migrationsRepo.updateMigration(migrationId, { total_messages: total });
   await withClient(targetAccount, targetPassword, async (client) => {
     let targetDelimiter = "/";
     const boxes = await listMailboxes(client);
@@ -32,7 +32,7 @@ async function runMigration(migrationId, jobUpdate) {
     for (const folder of sourceFolders) {
       const targetFolderName = folderMapping[folder.remote_name] || mapFolderName(folder.remote_name, folder.delimiter, targetDelimiter);
       await ensureFolder(client, targetFolderName, targetDelimiter);
-      const messages = messagesRepo.listByFolder(folder.id, 100000, 0);
+      const messages = await messagesRepo.listByFolder(folder.id, 100000, 0);
       for (const msg of messages) {
         processed += 1;
         try {
@@ -59,12 +59,12 @@ async function runMigration(migrationId, jobUpdate) {
             progress: total ? Math.round((processed / total) * 100) : 100,
             result: { migrated, skipped, errors },
           });
-          migrationsRepo.updateMigration(migrationId, { migrated_messages: migrated, skipped_messages: skipped, error_count: errors });
+          await migrationsRepo.updateMigration(migrationId, { migrated_messages: migrated, skipped_messages: skipped, error_count: errors });
         }
       }
     }
   });
-  migrationsRepo.updateMigration(migrationId, {
+  await migrationsRepo.updateMigration(migrationId, {
     status: errors ? "completed_with_errors" : "completed",
     migrated_messages: migrated,
     skipped_messages: skipped,

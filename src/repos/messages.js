@@ -1,21 +1,44 @@
-const { getDb } = require("../db");
+const { query, queryOne, execute, transaction } = require("../db");
 const insertSql = `
-  INSERT OR IGNORE INTO messages (account_id, folder_id, uid, message_id, subject, from_addr, to_addr, cc_addr, bcc_addr,
+  INSERT IGNORE INTO messages (account_id, folder_id, uid, message_id, subject, from_addr, to_addr, cc_addr, bcc_addr,
     date_sent, size_bytes, flags, raw_path, content_hash, has_attachments)
-  VALUES (@account_id, @folder_id, @uid, @message_id, @subject, @from_addr, @to_addr, @cc_addr, @bcc_addr,
-    @date_sent, @size_bytes, @flags, @raw_path, @content_hash, @has_attachments)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
-function insertMessage(data) {
-  const info = getDb().prepare(insertSql).run(data);
+const insertBodySql = `
+  INSERT INTO message_bodies (message_id, text_preview, html_available, search_text)
+  VALUES (?, ?, ?, ?)
+  ON DUPLICATE KEY UPDATE text_preview = VALUES(text_preview),
+    html_available = VALUES(html_available), search_text = VALUES(search_text)
+`;
+const insertAttachmentSql = `
+  INSERT INTO attachments (message_id, filename, content_type, size_bytes, storage_path)
+  VALUES (?, ?, ?, ?, ?)
+`;
+function messageParams(data) {
+  return [
+    data.account_id,
+    data.folder_id,
+    data.uid,
+    data.message_id,
+    data.subject,
+    data.from_addr,
+    data.to_addr,
+    data.cc_addr,
+    data.bcc_addr,
+    data.date_sent,
+    data.size_bytes,
+    data.flags,
+    data.raw_path,
+    data.content_hash,
+    data.has_attachments,
+  ];
+}
+async function insertMessage(data) {
+  const info = await execute(insertSql, messageParams(data));
   return { id: info.changes ? info.lastInsertRowid : null, inserted: info.changes > 0 };
 }
-function insertBody(messageId, body) {
-  getDb().prepare(`
-    INSERT INTO message_bodies (message_id, text_preview, html_available, search_text)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(message_id) DO UPDATE SET text_preview = excluded.text_preview,
-      html_available = excluded.html_available, search_text = excluded.search_text
-  `).run(messageId, body.textPreview, body.htmlAvailable, body.searchText);
+async function insertBody(messageId, body) {
+  await execute(insertBodySql, [messageId, body.textPreview, body.htmlAvailable, body.searchText]);
 }
 function buildSearchClause(q, params) {
   const terms = q.trim().split(/\s+/).filter(Boolean);
@@ -28,43 +51,40 @@ function buildSearchClause(q, params) {
   }
   return ` AND (${parts.join(" AND ")})`;
 }
-function insertAttachment(messageId, attachment) {
-  getDb().prepare(`
-    INSERT INTO attachments (message_id, filename, content_type, size_bytes, storage_path)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(messageId, attachment.filename, attachment.contentType, attachment.sizeBytes, attachment.storagePath || null);
+async function insertAttachment(messageId, attachment) {
+  await execute(insertAttachmentSql, [
+    messageId,
+    attachment.filename,
+    attachment.contentType,
+    attachment.sizeBytes,
+    attachment.storagePath || null,
+  ]);
 }
-function insertMessageBatch(items) {
+async function insertMessageBatch(items) {
   if (!items.length) return 0;
-  const db = getDb();
-  const insertMessageStmt = db.prepare(insertSql);
-  const insertBodyStmt = db.prepare(`
-    INSERT INTO message_bodies (message_id, text_preview, html_available, search_text)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(message_id) DO UPDATE SET text_preview = excluded.text_preview,
-      html_available = excluded.html_available, search_text = excluded.search_text
-  `);
-  const insertAttachmentStmt = db.prepare(`
-    INSERT INTO attachments (message_id, filename, content_type, size_bytes, storage_path)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  return db.transaction((records) => {
+  return transaction(async (tx) => {
     let inserted = 0;
-    for (const item of records) {
-      const info = insertMessageStmt.run(item.data);
+    for (const item of items) {
+      const info = await tx.execute(insertSql, messageParams(item.data));
       if (!info.changes) continue;
       inserted += 1;
       const body = item.body || {};
-      insertBodyStmt.run(info.lastInsertRowid, body.textPreview, body.htmlAvailable, body.searchText);
+      await tx.execute(insertBodySql, [info.lastInsertRowid, body.textPreview, body.htmlAvailable, body.searchText]);
       for (const att of item.attachments || []) {
-        insertAttachmentStmt.run(info.lastInsertRowid, att.filename, att.contentType, att.sizeBytes, att.storagePath || null);
+        await tx.execute(insertAttachmentSql, [
+          info.lastInsertRowid,
+          att.filename,
+          att.contentType,
+          att.sizeBytes,
+          att.storagePath || null,
+        ]);
       }
     }
     return inserted;
-  })(items);
+  });
 }
-function getMessage(id) {
-  return getDb().prepare(`
+async function getMessage(id) {
+  return queryOne(`
     SELECT m.*, f.remote_name AS folder_name, f.local_name, a.label AS account_label,
       b.text_preview, b.html_available, b.search_text
     FROM messages m
@@ -72,12 +92,12 @@ function getMessage(id) {
     JOIN accounts a ON a.id = m.account_id
     LEFT JOIN message_bodies b ON b.message_id = m.id
     WHERE m.id = ?
-  `).get(id);
+  `, [id]);
 }
-function getAttachments(messageId) {
-  return getDb().prepare("SELECT * FROM attachments WHERE message_id = ?").all(messageId);
+async function getAttachments(messageId) {
+  return query("SELECT * FROM attachments WHERE message_id = ?", [messageId]);
 }
-function searchMessages(filters) {
+async function searchMessages(filters) {
   const params = [];
   let sql = `
     SELECT m.*, f.remote_name AS folder_name, a.label AS account_label
@@ -95,46 +115,51 @@ function searchMessages(filters) {
   if (filters.q) sql += buildSearchClause(filters.q, params);
   sql += " ORDER BY m.date_sent DESC, m.id DESC LIMIT ? OFFSET ?";
   params.push(filters.limit || 50, filters.offset || 0);
-  return getDb().prepare(sql).all(...params);
+  return query(sql, params);
 }
-function countMessages(filters) {
+async function countMessages(filters) {
   const params = [];
   let sql = "SELECT COUNT(*) AS total FROM messages m LEFT JOIN message_bodies b ON b.message_id = m.id WHERE 1=1";
   if (filters.accountId) { sql += " AND m.account_id = ?"; params.push(filters.accountId); }
   if (filters.folderId) { sql += " AND m.folder_id = ?"; params.push(filters.folderId); }
   if (filters.hasAttachments) { sql += " AND m.has_attachments = 1"; }
   if (filters.q) sql += buildSearchClause(filters.q, params);
-  return getDb().prepare(sql).get(...params).total;
+  const row = await queryOne(sql, params);
+  return row.total;
 }
-function listByFolder(folderId, limit, offset) {
-  return getDb().prepare(`
+async function listByFolder(folderId, limit, offset) {
+  return query(`
     SELECT m.* FROM messages m WHERE m.folder_id = ? ORDER BY m.date_sent DESC, m.id DESC LIMIT ? OFFSET ?
-  `).all(folderId, limit || 50, offset || 0);
+  `, [folderId, limit || 50, offset || 0]);
 }
-function existsByMessageId(accountId, messageId) {
+async function existsByMessageId(accountId, messageId) {
   if (!messageId) return false;
-  return !!getDb().prepare("SELECT 1 FROM messages WHERE account_id = ? AND message_id = ? LIMIT 1").get(accountId, messageId);
+  return !!(await queryOne("SELECT 1 AS ok FROM messages WHERE account_id = ? AND message_id = ? LIMIT 1", [accountId, messageId]));
 }
-function existsByHash(accountId, folderId, hash) {
-  return !!getDb().prepare("SELECT 1 FROM messages WHERE account_id = ? AND folder_id = ? AND content_hash = ? LIMIT 1").get(accountId, folderId, hash);
+async function existsByHash(accountId, folderId, hash) {
+  return !!(await queryOne(
+    "SELECT 1 AS ok FROM messages WHERE account_id = ? AND folder_id = ? AND content_hash = ? LIMIT 1",
+    [accountId, folderId, hash]
+  ));
 }
-function listForExport(accountId, folderIds, messageIds) {
+async function listForExport(accountId, folderIds, messageIds) {
   if (messageIds && messageIds.length) {
     const placeholders = messageIds.map(() => "?").join(",");
-    return getDb().prepare(`SELECT * FROM messages WHERE id IN (${placeholders})`).all(...messageIds);
+    return query(`SELECT * FROM messages WHERE id IN (${placeholders})`, messageIds);
   }
   if (folderIds && folderIds.length) {
     const placeholders = folderIds.map(() => "?").join(",");
-    return getDb().prepare(`SELECT * FROM messages WHERE account_id = ? AND folder_id IN (${placeholders})`).all(accountId, ...folderIds);
+    return query(`SELECT * FROM messages WHERE account_id = ? AND folder_id IN (${placeholders})`, [accountId, ...folderIds]);
   }
-  return getDb().prepare("SELECT * FROM messages WHERE account_id = ?").all(accountId);
+  return query("SELECT * FROM messages WHERE account_id = ?", [accountId]);
 }
-function getMaxUid(folderId) {
-  const row = getDb().prepare("SELECT MAX(uid) AS maxUid FROM messages WHERE folder_id = ?").get(folderId);
+async function getMaxUid(folderId) {
+  const row = await queryOne("SELECT MAX(uid) AS maxUid FROM messages WHERE folder_id = ?", [folderId]);
   return row && row.maxUid ? row.maxUid : 0;
 }
-function totalCount() {
-  return getDb().prepare("SELECT COUNT(*) AS total FROM messages").get().total;
+async function totalCount() {
+  const row = await queryOne("SELECT COUNT(*) AS total FROM messages");
+  return row.total;
 }
 module.exports = {
   insertMessage, insertBody, insertAttachment, insertMessageBatch, getMessage, getAttachments, searchMessages,

@@ -5,7 +5,6 @@ const { parseMessage } = require("../lib/parser");
 const { formatBytes } = require("../lib/formatBytes");
 const { saveRawMessage } = require("../lib/storage");
 const { uniqueName } = require("../lib/safeName");
-const config = require("../config");
 const { getRuntimeSettings } = require("../lib/runtimeConfig");
 const accountsRepo = require("../repos/accounts");
 const foldersRepo = require("../repos/folders");
@@ -14,24 +13,24 @@ const backupRunsRepo = require("../repos/backupRuns");
 const jobsRepo = require("../repos/jobs");
 function createLogger(jobId, jobUpdate) {
   return (line) => {
-    if (jobId) jobsRepo.appendLog(jobId, line);
+    if (jobId) jobsRepo.appendLog(jobId, line).catch(() => {});
     if (jobUpdate) jobUpdate({ log: line });
   };
 }
-function assertNotCancelled(jobId) {
-  if (jobId && jobsRepo.isCancelled(jobId)) {
+async function assertNotCancelled(jobId) {
+  if (jobId && await jobsRepo.isCancelled(jobId)) {
     throw new Error("Job cancelled by user");
   }
 }
 async function runBackup(accountId, jobUpdate, jobId, options) {
-  const account = accountsRepo.getAccount(accountId);
+  const account = await accountsRepo.getAccount(accountId);
   if (!account) throw new Error("Account not found");
   const password = accountsRepo.getPassword(account);
   const log = createLogger(jobId, jobUpdate);
   const folderFilter = options && options.folderNames && options.folderNames.length ? options.folderNames : null;
   const incremental = !options || options.incremental !== false;
-  const runtime = getRuntimeSettings();
-  const run = backupRunsRepo.createRun(accountId);
+  const runtime = await getRuntimeSettings();
+  const run = await backupRunsRepo.createRun(accountId);
   let totalMessages = 0;
   let newMessages = 0;
   let errorCount = 0;
@@ -49,10 +48,10 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
       const totalFolders = remoteFolders.length;
       let folderIndex = 0;
       for (const remote of remoteFolders) {
-        assertNotCancelled(jobId);
+        await assertNotCancelled(jobId);
         folderIndex += 1;
         const localName = uniqueName(remote.name, usedNames);
-        const folder = foldersRepo.upsertFolder(accountId, remote.name, localName, remote.delimiter);
+        const folder = await foldersRepo.upsertFolder(accountId, remote.name, localName, remote.delimiter);
         if (!folderFilter && folder.included === 0) {
           log(`Skipping excluded folder ${remote.name}`);
           continue;
@@ -61,27 +60,27 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
         const lock = await client.getMailboxLock(remote.name);
         try {
           const status = await client.status(remote.name, { uidValidity: true, messages: true });
-          foldersRepo.updateCounts(folder.id, status.messages || 0);
+          await foldersRepo.updateCounts(folder.id, status.messages || 0);
           if (status.uidValidity) {
-            foldersRepo.upsertFolder(accountId, remote.name, localName, remote.delimiter, status.uidValidity);
+            await foldersRepo.upsertFolder(accountId, remote.name, localName, remote.delimiter, status.uidValidity);
           }
-          const lastUid = incremental ? messagesRepo.getMaxUid(folder.id) : 0;
+          const lastUid = incremental ? await messagesRepo.getMaxUid(folder.id) : 0;
           const range = lastUid > 0 ? `${lastUid + 1}:*` : "1:*";
           if (lastUid > 0) log(`Incremental sync from UID ${lastUid + 1} in ${remote.name}`);
           let count = 0;
           let newInFolder = 0;
           let folderBytes = 0;
           const pendingMessages = [];
-          const flushPending = () => {
+          const flushPending = async () => {
             if (!pendingMessages.length) return 0;
-            const inserted = messagesRepo.insertMessageBatch(pendingMessages);
+            const inserted = await messagesRepo.insertMessageBatch(pendingMessages);
             pendingMessages.length = 0;
             newInFolder += inserted;
             newMessages += inserted;
             return inserted;
           };
           for await (const msg of client.fetch(range, { uid: true, source: true, flags: true, envelope: true, bodyStructure: true })) {
-            assertNotCancelled(jobId);
+            await assertNotCancelled(jobId);
             count += 1;
             const buffer = msg.source;
             if (!buffer) continue;
@@ -122,9 +121,9 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
               attachments: meta.attachments || [],
             });
             totalMessages += 1;
-            if (pendingMessages.length >= 100) flushPending();
+            if (pendingMessages.length >= 100) await flushPending();
             if (count % 100 === 0) {
-              flushPending();
+              await flushPending();
               log(`${remote.name}: processed ${count} message(s), ${newInFolder} new`);
               if (jobUpdate) {
                 const progress = Math.round((folderIndex / totalFolders) * 100);
@@ -132,7 +131,7 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
               }
             }
           }
-          flushPending();
+          await flushPending();
           log(`Finished ${remote.name}: ${count} fetched, ${newInFolder} new, ${formatBytes(folderBytes)}`);
           if (jobUpdate) {
             const progress = Math.round((folderIndex / totalFolders) * 100);
@@ -143,9 +142,9 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
         }
       }
     });
-    accountsRepo.setAccountStatus(accountId, "connected");
-    accountsRepo.setLastBackup(accountId);
-    backupRunsRepo.updateRun(run.id, {
+    await accountsRepo.setAccountStatus(accountId, "connected");
+    await accountsRepo.setLastBackup(accountId);
+    await backupRunsRepo.updateRun(run.id, {
       status: errorCount ? "completed_with_errors" : "completed",
       finished_at: new Date().toISOString(),
       total_folders: usedNames.size,
@@ -158,13 +157,13 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
     return { runId: run.id, totalMessages, newMessages, errorCount };
   } catch (err) {
     log(`Backup failed: ${err.message}`);
-    backupRunsRepo.updateRun(run.id, {
-      status: jobsRepo.isCancelled(jobId) ? "cancelled" : "failed",
+    await backupRunsRepo.updateRun(run.id, {
+      status: (await jobsRepo.isCancelled(jobId)) ? "cancelled" : "failed",
       finished_at: new Date().toISOString(),
       error_count: errorCount + 1,
       error_log: err.message,
     });
-    if (!jobsRepo.isCancelled(jobId)) accountsRepo.setAccountStatus(accountId, "error");
+    if (!(await jobsRepo.isCancelled(jobId))) await accountsRepo.setAccountStatus(accountId, "error");
     throw err;
   }
 }

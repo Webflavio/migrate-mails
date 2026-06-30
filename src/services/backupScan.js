@@ -19,24 +19,25 @@ async function scanFolderStats(client, remoteName) {
   }
 }
 async function scanAccountFolders(accountId, options) {
-  const account = accountsRepo.getAccount(accountId);
+  const account = await accountsRepo.getAccount(accountId);
   if (!account) throw new Error("Account not found");
   const password = accountsRepo.getPassword(account);
   const includeSizes = options && options.includeSizes;
   const folderNames = options && options.folderNames;
+  const localFolders = await foldersRepo.listFolders(accountId);
   return withClient(account, password, async (client) => {
     const boxes = await listMailboxes(client);
-    let folders = boxes.map((box) => {
-      const existing = foldersRepo.listFolders(accountId).find((f) => f.remote_name === box.path);
+    let folders = await Promise.all(boxes.map(async (box) => {
+      const existing = localFolders.find((f) => f.remote_name === box.path);
       return {
         name: box.path,
         delimiter: box.delimiter || "/",
         included: existing ? existing.included === 1 : true,
-        backedUp: foldersRepo.getBackedUpCount(accountId, box.path),
+        backedUp: await foldersRepo.getBackedUpCount(accountId, box.path),
         messages: 0,
         totalSize: 0,
       };
-    });
+    }));
     if (folderNames && folderNames.length) {
       folders = folders.filter((f) => folderNames.includes(f.name));
     }

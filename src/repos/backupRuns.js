@@ -1,51 +1,58 @@
-const { getDb } = require("../db");
-function createRun(accountId) {
-  const info = getDb().prepare(`
-    INSERT INTO backup_runs (account_id, status) VALUES (?, 'running')
-  `).run(accountId);
+const { query, queryOne, execute } = require("../db");
+async function createRun(accountId) {
+  const info = await execute("INSERT INTO backup_runs (account_id, status) VALUES (?, 'running')", [accountId]);
   return getRun(info.lastInsertRowid);
 }
-function getRun(id) {
-  return getDb().prepare("SELECT * FROM backup_runs WHERE id = ?").get(id);
+async function getRun(id) {
+  return queryOne("SELECT * FROM backup_runs WHERE id = ?", [id]);
 }
-function updateRun(id, patch) {
-  getDb().prepare(`
-    UPDATE backup_runs SET status = COALESCE(@status, status),
-      finished_at = COALESCE(@finished_at, finished_at),
-      total_folders = COALESCE(@total_folders, total_folders),
-      total_messages = COALESCE(@total_messages, total_messages),
-      new_messages = COALESCE(@new_messages, new_messages),
-      error_count = COALESCE(@error_count, error_count),
-      error_log = COALESCE(@error_log, error_log)
-    WHERE id = @id
-  `).run({ id, ...patch });
+async function updateRun(id, patch) {
+  await execute(`
+    UPDATE backup_runs SET status = COALESCE(?, status),
+      finished_at = COALESCE(?, finished_at),
+      total_folders = COALESCE(?, total_folders),
+      total_messages = COALESCE(?, total_messages),
+      new_messages = COALESCE(?, new_messages),
+      error_count = COALESCE(?, error_count),
+      error_log = COALESCE(?, error_log)
+    WHERE id = ?
+  `, [
+    patch.status ?? null,
+    patch.finished_at ?? null,
+    patch.total_folders ?? null,
+    patch.total_messages ?? null,
+    patch.new_messages ?? null,
+    patch.error_count ?? null,
+    patch.error_log ?? null,
+    id,
+  ]);
   return getRun(id);
 }
-function listRuns(accountId, limit) {
+async function listRuns(accountId, limit) {
   if (accountId) {
-    return getDb().prepare(`
+    return query(`
       SELECT r.*, a.label AS account_label FROM backup_runs r
       JOIN accounts a ON a.id = r.account_id
       WHERE r.account_id = ? ORDER BY r.id DESC LIMIT ?
-    `).all(accountId, limit || 20);
+    `, [accountId, limit || 20]);
   }
-  return getDb().prepare(`
+  return query(`
     SELECT r.*, a.label AS account_label FROM backup_runs r
     JOIN accounts a ON a.id = r.account_id ORDER BY r.id DESC LIMIT ?
-  `).all(limit || 20);
+  `, [limit || 20]);
 }
-function deleteRun(id) {
-  return getDb().prepare("DELETE FROM backup_runs WHERE id = ?").run(id);
+async function deleteRun(id) {
+  return execute("DELETE FROM backup_runs WHERE id = ?", [id]);
 }
-function deleteByAccount(accountId) {
-  return getDb().prepare("DELETE FROM backup_runs WHERE account_id = ?").run(accountId);
+async function deleteByAccount(accountId) {
+  return execute("DELETE FROM backup_runs WHERE account_id = ?", [accountId]);
 }
-function deleteOlderThan(days) {
-  const info = getDb().prepare(`
+async function deleteOlderThan(days) {
+  const info = await execute(`
     DELETE FROM backup_runs
     WHERE finished_at IS NOT NULL
-      AND datetime(finished_at) < datetime('now', '-' || ? || ' days')
-  `).run(days);
+      AND finished_at < DATE_SUB(NOW(), INTERVAL ? DAY)
+  `, [days]);
   return info.changes;
 }
 module.exports = { createRun, getRun, updateRun, listRuns, deleteRun, deleteByAccount, deleteOlderThan };

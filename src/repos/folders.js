@@ -1,44 +1,45 @@
-const { getDb } = require("../db");
-function upsertFolder(accountId, remoteName, localName, delimiter, uidValidity) {
-  getDb().prepare(`
+const { query, queryOne, execute } = require("../db");
+async function upsertFolder(accountId, remoteName, localName, delimiter, uidValidity) {
+  await execute(`
     INSERT INTO folders (account_id, remote_name, local_name, delimiter, uid_validity)
     VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(account_id, remote_name) DO UPDATE SET
-      local_name = excluded.local_name,
-      delimiter = excluded.delimiter,
-      uid_validity = COALESCE(excluded.uid_validity, folders.uid_validity)
-  `).run(accountId, remoteName, localName, delimiter || "/", uidValidity || null);
-  return getDb().prepare("SELECT * FROM folders WHERE account_id = ? AND remote_name = ?").get(accountId, remoteName);
+    ON DUPLICATE KEY UPDATE
+      local_name = VALUES(local_name),
+      delimiter = VALUES(delimiter),
+      uid_validity = COALESCE(VALUES(uid_validity), uid_validity)
+  `, [accountId, remoteName, localName, delimiter || "/", uidValidity || null]);
+  return queryOne("SELECT * FROM folders WHERE account_id = ? AND remote_name = ?", [accountId, remoteName]);
 }
-function getFolder(id) {
-  return getDb().prepare("SELECT * FROM folders WHERE id = ?").get(id);
+async function getFolder(id) {
+  return queryOne("SELECT * FROM folders WHERE id = ?", [id]);
 }
-function listFolders(accountId) {
-  return getDb().prepare(`
+async function listFolders(accountId) {
+  return query(`
     SELECT f.*, (SELECT COUNT(*) FROM messages m WHERE m.folder_id = f.id) AS backed_up_count
     FROM folders f WHERE f.account_id = ? ORDER BY f.remote_name ASC
-  `).all(accountId);
+  `, [accountId]);
 }
-function setIncluded(id, included) {
-  getDb().prepare("UPDATE folders SET included = ? WHERE id = ?").run(included ? 1 : 0, id);
+async function setIncluded(id, included) {
+  await execute("UPDATE folders SET included = ? WHERE id = ?", [included ? 1 : 0, id]);
 }
-function setIncludedForAccount(accountId, remoteNames, included) {
-  const stmt = getDb().prepare("UPDATE folders SET included = ? WHERE account_id = ? AND remote_name = ?");
-  for (const name of remoteNames) stmt.run(included ? 1 : 0, accountId, name);
+async function setIncludedForAccount(accountId, remoteNames, included) {
+  for (const name of remoteNames) {
+    await execute("UPDATE folders SET included = ? WHERE account_id = ? AND remote_name = ?", [included ? 1 : 0, accountId, name]);
+  }
 }
-function getBackedUpCount(accountId, remoteName) {
-  const row = getDb().prepare(`
+async function getBackedUpCount(accountId, remoteName) {
+  const row = await queryOne(`
     SELECT COUNT(*) AS total FROM messages m
     JOIN folders f ON f.id = m.folder_id
     WHERE f.account_id = ? AND f.remote_name = ?
-  `).get(accountId, remoteName);
+  `, [accountId, remoteName]);
   return row ? row.total : 0;
 }
-function updateCounts(folderId, count) {
-  getDb().prepare("UPDATE folders SET message_count = ?, last_synced_at = datetime('now') WHERE id = ?").run(count, folderId);
+async function updateCounts(folderId, count) {
+  await execute("UPDATE folders SET message_count = ?, last_synced_at = NOW() WHERE id = ?", [count, folderId]);
 }
-function getOrCreateLegacyFolder(accountId, folderName) {
-  const existing = getDb().prepare("SELECT * FROM folders WHERE account_id = ? AND remote_name = ?").get(accountId, folderName);
+async function getOrCreateLegacyFolder(accountId, folderName) {
+  const existing = await queryOne("SELECT * FROM folders WHERE account_id = ? AND remote_name = ?", [accountId, folderName]);
   if (existing) return existing;
   return upsertFolder(accountId, folderName, folderName, "/");
 }

@@ -33,11 +33,13 @@ function startListening(app) {
 async function main() {
   console.log("[startup] Ensuring data directories...");
   ensureAppDirs();
-  console.log("[startup] Data root:", config.dataRoot || config.dbPath);
-  console.log("[startup] Database:", config.dbPath);
+  console.log("[startup] Data root:", config.dataRoot || config.storagePath);
+  console.log("[startup] MySQL:", `${config.mysql.host}:${config.mysql.port}/${config.mysql.database}`);
   console.log("[startup] Storage:", config.storagePath);
   console.log("[startup] Initializing database...");
   await initDb();
+  const { getRuntimeSettings } = require("./lib/runtimeConfig");
+  await getRuntimeSettings();
   console.log("[startup] Creating Express app...");
   const app = express();
   app.set("trust proxy", config.trustProxy);

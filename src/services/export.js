@@ -2,10 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const archiver = require("archiver");
 const config = require("../config");
-const { getRuntimeSettings } = require("../lib/runtimeConfig");
+const { getRuntimeSettingsSync } = require("../lib/runtimeConfig");
 const { readRawMessage } = require("../lib/storage");
 const messagesRepo = require("../repos/messages");
-const foldersRepo = require("../repos/folders");
 function ensureExportDir() {
   fs.mkdirSync(config.exportPath, { recursive: true });
 }
@@ -14,7 +13,7 @@ function safeFileName(value) {
 }
 async function exportEmlZip(accountId, options, jobUpdate) {
   ensureExportDir();
-  const messages = messagesRepo.listForExport(accountId, options.folderIds, options.messageIds);
+  const messages = await messagesRepo.listForExport(accountId, options.folderIds, options.messageIds);
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const outputPath = path.join(config.exportPath, `export-${accountId}-${timestamp}.zip`);
   await new Promise((resolve, reject) => {
@@ -40,7 +39,7 @@ async function exportEmlZip(accountId, options, jobUpdate) {
 }
 async function exportMbox(accountId, options, jobUpdate) {
   ensureExportDir();
-  const messages = messagesRepo.listForExport(accountId, options.folderIds, options.messageIds);
+  const messages = await messagesRepo.listForExport(accountId, options.folderIds, options.messageIds);
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const outputPath = path.join(config.exportPath, `export-${accountId}-${timestamp}.mbox`);
   const stream = fs.createWriteStream(outputPath, { flags: "w" });
@@ -65,7 +64,7 @@ async function exportMbox(accountId, options, jobUpdate) {
 }
 function cleanupOldExports() {
   ensureExportDir();
-  const maxAge = getRuntimeSettings().exportRetentionDays * 24 * 60 * 60 * 1000;
+  const maxAge = getRuntimeSettingsSync().exportRetentionDays * 24 * 60 * 60 * 1000;
   const now = Date.now();
   for (const file of fs.readdirSync(config.exportPath)) {
     const full = path.join(config.exportPath, file);

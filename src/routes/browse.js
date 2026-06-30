@@ -3,11 +3,12 @@ const accountsRepo = require("../repos/accounts");
 const foldersRepo = require("../repos/folders");
 const messagesRepo = require("../repos/messages");
 const { readRawMessage } = require("../lib/storage");
+const asyncHandler = require("../middleware/asyncHandler");
 const router = express.Router();
 router.get("/", (req, res) => {
   res.redirect("/browse/search");
 });
-router.get("/search", (req, res) => {
+router.get("/search", asyncHandler(async (req, res) => {
   const accountId = req.query.account ? Number(req.query.account) : null;
   const folderId = req.query.folder ? Number(req.query.folder) : null;
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -22,10 +23,10 @@ router.get("/search", (req, res) => {
     limit,
     offset: (page - 1) * limit,
   };
-  const messages = messagesRepo.searchMessages(filters);
-  const total = messagesRepo.countMessages(filters);
-  const accounts = accountsRepo.listAccounts();
-  const folders = accountId ? foldersRepo.listFolders(accountId) : [];
+  const messages = await messagesRepo.searchMessages(filters);
+  const total = await messagesRepo.countMessages(filters);
+  const accounts = await accountsRepo.listAccounts();
+  const folders = accountId ? await foldersRepo.listFolders(accountId) : [];
   res.render("pages/browse/index", {
     title: "Browse",
     accounts,
@@ -38,19 +39,19 @@ router.get("/search", (req, res) => {
     page,
     filters,
   });
-});
-router.get("/messages/:id", (req, res) => {
-  const message = messagesRepo.getMessage(Number(req.params.id));
+}));
+router.get("/messages/:id", asyncHandler(async (req, res) => {
+  const message = await messagesRepo.getMessage(Number(req.params.id));
   if (!message) return res.status(404).render("pages/error", { title: "Not Found", message: "Message not found." });
-  const attachments = messagesRepo.getAttachments(message.id);
+  const attachments = await messagesRepo.getAttachments(message.id);
   res.render("pages/browse/message", { title: message.subject || "Message", message, attachments });
-});
-router.get("/messages/:id/raw", (req, res) => {
-  const message = messagesRepo.getMessage(Number(req.params.id));
+}));
+router.get("/messages/:id/raw", asyncHandler(async (req, res) => {
+  const message = await messagesRepo.getMessage(Number(req.params.id));
   if (!message) return res.status(404).send("Not found");
   const raw = readRawMessage(message.raw_path);
   res.setHeader("Content-Type", "message/rfc822");
   res.setHeader("Content-Disposition", `attachment; filename="message-${message.id}.eml"`);
   res.send(raw);
-});
+}));
 module.exports = router;

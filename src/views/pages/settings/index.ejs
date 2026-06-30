@@ -23,7 +23,7 @@
     <div class="stat-pill"><span>Email storage</span><strong><%= storageSize %></strong></div>
     <div class="stat-pill"><span>Exports</span><strong><%= exportSize %></strong></div>
     <div class="stat-pill"><span>Jobs in DB</span><strong><%= jobCount %></strong></div>
-    <div class="stat-pill"><span>Database file</span><span class="path-value"><%= config.dbPath %></span></div>
+    <div class="stat-pill"><span>MySQL database</span><span class="path-value"><%= config.mysql.database %></span></div>
   </div>
   <p style="color:var(--cu-text-secondary);font-size:13px;margin:12px 0 0">Storage: <%= config.storagePath %> · Exports: <%= config.exportPath %></p>
 </div>

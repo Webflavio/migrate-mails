@@ -1,11 +1,11 @@
 # MailVault — Email Backup Manager
-w
-Node.js web app for backing up, browsing, exporting, and migrating IMAP email accounts with a multi-account dashboard backed by SQLite.
+
+Node.js web app for backing up, browsing, exporting, and migrating IMAP email accounts with a multi-account dashboard backed by MySQL.
 
 ## Features
 
 - **Multiple accounts** — add, edit, test, and delete IMAP mailboxes
-- **Backup** — fetch all folders incrementally; raw `.eml` files + searchable metadata in SQLite
+- **Backup** — fetch all folders incrementally; raw `.eml` files + searchable metadata in MySQL
 - **Browse** — search/filter by account, folder, date, attachments, and keywords
 - **Export** — download backups as EML ZIP or MBOX
 - **Migrate** — push backed-up messages to another IMAP account with folder mapping and duplicate skipping
@@ -15,6 +15,7 @@ Node.js web app for backing up, browsing, exporting, and migrating IMAP email ac
 
 - Node.js 18+ (tested on 18.20.x; Hostinger shared hosting)
 - npm
+- MySQL 5.7+ or MariaDB 10.3+ (Hostinger includes this)
 
 ## Setup
 
@@ -29,7 +30,11 @@ Copy or edit `.env`:
 PORT=3847
 APP_SECRET=change-me-to-a-long-random-secret
 ADMIN_PASSWORD=your-dashboard-password
-DB_PATH=./data/app.db
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=your-mysql-password
+MYSQL_DATABASE=mailvault
 STORAGE_PATH=./storage/emails
 EXPORT_PATH=./exports
 LEGACY_BACKUP_PATH=./backup
@@ -40,7 +45,15 @@ IMAP_TLS_INSECURE=false
 TRUST_PROXY=1
 ```
 
-**Important:** set `APP_SECRET` to a long random string before adding accounts. Passwords are encrypted in SQLite using this key.
+Create the MySQL database before first run:
+
+```sql
+CREATE DATABASE mailvault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Tables are created automatically on startup.
+
+**Important:** set `APP_SECRET` to a long random string before adding accounts. Passwords are encrypted in MySQL using this key.
 
 Set `ADMIN_PASSWORD` in `.env` to protect the dashboard — all pages require sign-in.
 
@@ -48,31 +61,36 @@ On Hostinger or any reverse-proxy host, keep `TRUST_PROXY=1` (default). If IMAP 
 
 ## Hostinger Deployment
 
-1. In hPanel → **Websites → Node.js**, set:
+1. In hPanel → **Databases → MySQL**, create a database and user. Note the host, database name, username, and password.
+2. In hPanel → **Websites → Node.js**, set:
    - **Application startup file:** `server.js`
    - **Node.js version:** 18.x
    - **Run script:** `npm start`
-2. Add environment variables in hPanel (do **not** set `PORT` — Hostinger assigns it automatically).
-3. Required variables: `APP_SECRET`, `ADMIN_PASSWORD`, `TRUST_PROXY=1`
+3. Add environment variables in hPanel (do **not** set `PORT` — Hostinger assigns it automatically):
+   - `APP_SECRET`, `ADMIN_PASSWORD`, `TRUST_PROXY=1`
+   - `MYSQL_HOST` (usually `localhost` or the host shown in hPanel)
+   - `MYSQL_PORT=3306`
+   - `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`
 4. After deploy, open **Runtime logs** in hPanel if you see 503 — look for `[startup]` messages.
 5. Health check URL: `https://your-domain/health` should return `{"ok":true}`.
 
 If you use a `.env` file on the server, remove `PORT=3847` from it so Hostinger's assigned port is used.
 
+This app uses the pure JavaScript `mysql` driver (no native compilation), so it installs cleanly on Hostinger shared hosting without `node-gyp` or `make`.
+
 ### Data persistence (important)
 
-Hostinger redeploys replace the `nodejs/` app folder. By default, accounts, emails, and exports are stored in a **persistent folder outside the app**:
+Hostinger redeploys replace the `nodejs/` app folder. Email files and exports are stored in a **persistent folder outside the app**:
 
 ```
 /home/you/domains/your-site.com/mailvault-data/
-  app.db
   emails/
   exports/
 ```
 
-This is used automatically when Hostinger injects `PORT` (or when `NODE_ENV=production`).
+MySQL data lives in Hostinger's managed MySQL server (not in the app folder).
 
-To use a custom location, set in hPanel:
+To use a custom location for files, set in hPanel:
 
 ```env
 DATA_DIR=/home/u871337011/domains/your-site.com/mailvault-data
@@ -81,21 +99,11 @@ DATA_DIR=/home/u871337011/domains/your-site.com/mailvault-data
 Or set absolute paths:
 
 ```env
-DB_PATH=/home/u871337011/domains/your-site.com/mailvault-data/app.db
 STORAGE_PATH=/home/u871337011/domains/your-site.com/mailvault-data/emails
 EXPORT_PATH=/home/u871337011/domains/your-site.com/mailvault-data/exports
 ```
 
 **Keep `APP_SECRET` the same across redeploys** — if it changes, saved account passwords cannot be decrypted.
-
-If you already had data inside `nodejs/data/` before this fix, move it once:
-
-```bash
-mkdir -p ../mailvault-data
-mv data/app.db ../mailvault-data/
-mv storage/emails ../mailvault-data/emails
-mv exports ../mailvault-data/exports
-```
 
 ## Run
 
@@ -135,13 +143,15 @@ npm run index-legacy -- 1
 npm test
 ```
 
+Repository tests require a local MySQL server; they skip automatically if MySQL is unavailable.
+
 ## Project Structure
 
 ```
 src/
   index.js          Express app entry
   config.js         Environment config
-  db/               SQLite schema and init
+  db/               MySQL schema and init
   lib/              IMAP, crypto, parser, storage helpers
   repos/            Database repositories
   services/         Backup, export, migrate, job runner
@@ -149,7 +159,6 @@ src/
   views/            EJS templates
 storage/emails/     Raw .eml message files
 exports/            Generated export files
-data/app.db         SQLite database
 ```
 
 ## Jobs
@@ -159,5 +168,5 @@ Backup, export, migrate, and legacy-index operations run as background jobs. Vie
 ## Security Notes
 
 - Run locally; do not expose to the public internet without authentication.
-- Keep `.env` and `data/app.db` private.
+- Keep `.env` private and restrict MySQL user permissions.
 - Account passwords are AES-256-GCM encrypted at rest.

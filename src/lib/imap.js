@@ -6,8 +6,8 @@ function buildTlsOptions(account) {
   if (config.imapTlsInsecure) tls.rejectUnauthorized = false;
   return tls;
 }
-function createClient(account, password) {
-  const runtime = getRuntimeSettings();
+async function createClient(account, password) {
+  const runtime = await getRuntimeSettings();
   return new ImapFlow({
     host: account.imap_host,
     port: account.imap_port,
@@ -41,7 +41,7 @@ async function listMailboxes(client, options) {
   return folders;
 }
 async function withClient(account, password, fn) {
-  const client = createClient(account, password);
+  const client = await createClient(account, password);
   try {
     await client.connect();
     return await fn(client);

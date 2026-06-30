@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const config = require("../config");
-const { getDb } = require("../db");
+const { query, queryOne, execute } = require("../db");
 const accountsRepo = require("../repos/accounts");
 const backupRunsRepo = require("../repos/backupRuns");
 const jobsRepo = require("../repos/jobs");
@@ -14,27 +14,25 @@ function deleteAccountStorageDir(accountId) {
   const dir = path.join(config.storagePath, String(accountId));
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 }
-function deleteAccountBackupData(accountId) {
-  const account = accountsRepo.getAccount(accountId);
+async function deleteAccountBackupData(accountId) {
+  const account = await accountsRepo.getAccount(accountId);
   if (!account) throw new Error("Account not found");
-  const messages = getDb().prepare("SELECT raw_path FROM messages WHERE account_id = ?").all(accountId);
+  const messages = await query("SELECT raw_path FROM messages WHERE account_id = ?", [accountId]);
   for (const row of messages) deleteRawFile(row.raw_path);
-  getDb().prepare("DELETE FROM messages WHERE account_id = ?").run(accountId);
-  getDb().prepare("DELETE FROM folders WHERE account_id = ?").run(accountId);
-  backupRunsRepo.deleteByAccount(accountId);
+  await execute("DELETE FROM messages WHERE account_id = ?", [accountId]);
+  await execute("DELETE FROM folders WHERE account_id = ?", [accountId]);
+  await backupRunsRepo.deleteByAccount(accountId);
   deleteAccountStorageDir(accountId);
-  getDb().prepare("UPDATE accounts SET last_backup_at = NULL, updated_at = datetime('now') WHERE id = ?").run(accountId);
+  await execute("UPDATE accounts SET last_backup_at = NULL, updated_at = NOW() WHERE id = ?", [accountId]);
   return { accountId, deletedMessages: messages.length };
 }
-function deleteFolderBackupData(folderId) {
-  const folder = getDb().prepare("SELECT * FROM folders WHERE id = ?").get(folderId);
+async function deleteFolderBackupData(folderId) {
+  const folder = await queryOne("SELECT * FROM folders WHERE id = ?", [folderId]);
   if (!folder) throw new Error("Folder not found");
-  const messages = getDb().prepare("SELECT raw_path FROM messages WHERE folder_id = ?").all(folderId);
+  const messages = await query("SELECT raw_path FROM messages WHERE folder_id = ?", [folderId]);
   for (const row of messages) deleteRawFile(row.raw_path);
-  getDb().prepare("DELETE FROM messages WHERE folder_id = ?").run(folderId);
-  getDb().prepare(`
-    UPDATE folders SET message_count = 0, last_synced_at = NULL WHERE id = ?
-  `).run(folderId);
+  await execute("DELETE FROM messages WHERE folder_id = ?", [folderId]);
+  await execute("UPDATE folders SET message_count = 0, last_synced_at = NULL WHERE id = ?", [folderId]);
   return { folderId, deletedMessages: messages.length };
 }
 function clearAllExports() {
@@ -49,20 +47,20 @@ function clearAllExports() {
   }
   return { deleted };
 }
-function purgeOldJobs(days) {
+async function purgeOldJobs(days) {
   return jobsRepo.deleteOlderThan(days);
 }
-function purgeOldBackupRuns(days) {
+async function purgeOldBackupRuns(days) {
   return backupRunsRepo.deleteOlderThan(days);
 }
-function purgeAllCompletedJobs() {
+async function purgeAllCompletedJobs() {
   return jobsRepo.deleteByStatuses(["completed", "failed", "cancelled"]);
 }
-function getAccountBackupStats(accountId) {
-  const row = getDb().prepare(`
+async function getAccountBackupStats(accountId) {
+  const row = await queryOne(`
     SELECT COUNT(*) AS messages, COALESCE(SUM(size_bytes), 0) AS bytes
     FROM messages WHERE account_id = ?
-  `).get(accountId);
+  `, [accountId]);
   return { messages: row.messages || 0, bytes: row.bytes || 0 };
 }
 module.exports = {

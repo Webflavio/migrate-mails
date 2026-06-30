@@ -4,8 +4,6 @@ const config = require("../config");
 const { hashContent } = require("../lib/crypto");
 const { parseMessage } = require("../lib/parser");
 const { saveRawMessage } = require("../lib/storage");
-const { uniqueName } = require("../lib/safeName");
-const accountsRepo = require("../repos/accounts");
 const foldersRepo = require("../repos/folders");
 const messagesRepo = require("../repos/messages");
 async function indexLegacyBackup(accountId, onProgress) {
@@ -15,10 +13,10 @@ async function indexLegacyBackup(accountId, onProgress) {
   let skipped = 0;
   const entries = fs.readdirSync(legacyDir, { withFileTypes: true });
   const pendingMessages = [];
-  const flushPending = () => {
+  const flushPending = async () => {
     if (!pendingMessages.length) return;
     const attempted = pendingMessages.length;
-    const inserted = messagesRepo.insertMessageBatch(pendingMessages);
+    const inserted = await messagesRepo.insertMessageBatch(pendingMessages);
     pendingMessages.length = 0;
     indexed += inserted;
     skipped += attempted - inserted;
@@ -26,7 +24,7 @@ async function indexLegacyBackup(accountId, onProgress) {
   };
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const folder = foldersRepo.getOrCreateLegacyFolder(accountId, entry.name);
+    const folder = await foldersRepo.getOrCreateLegacyFolder(accountId, entry.name);
     const files = fs.readdirSync(path.join(legacyDir, entry.name)).filter((f) => f.endsWith(".eml") || f.endsWith(".mbox"));
     for (const file of files) {
       const full = path.join(legacyDir, entry.name, file);
@@ -56,10 +54,10 @@ async function indexLegacyBackup(accountId, onProgress) {
         body: { ...parsed, subject: parsed.subject },
         attachments: parsed.attachments,
       });
-      if (pendingMessages.length >= 100) flushPending();
+      if (pendingMessages.length >= 100) await flushPending();
     }
   }
-  flushPending();
+  await flushPending();
   return { indexed, skipped };
 }
 module.exports = { indexLegacyBackup };

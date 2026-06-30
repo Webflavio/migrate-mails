@@ -1,13 +1,16 @@
-const { getDb } = require("../db");
-function getSetting(key) {
-  const row = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(key);
-  return row ? row.value : null;
+const { query, queryOne, execute } = require("../db");
+async function getSetting(key) {
+  const row = await queryOne("SELECT setting_value FROM settings WHERE setting_key = ?", [key]);
+  return row ? row.setting_value : null;
 }
-function setSetting(key, value) {
-  getDb().prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+async function setSetting(key, value) {
+  await execute(
+    "INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
+    [key, value]
+  );
 }
-function getAllSettings() {
-  const rows = getDb().prepare("SELECT key, value FROM settings").all();
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+async function getAllSettings() {
+  const rows = await query("SELECT setting_key, setting_value FROM settings");
+  return Object.fromEntries(rows.map((r) => [r.setting_key, r.setting_value]));
 }
 module.exports = { getSetting, setSetting, getAllSettings };
