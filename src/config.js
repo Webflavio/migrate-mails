@@ -1,6 +1,7 @@
 const path = require("path");
 const { z } = require("zod");
 const { parseBool } = require("./lib/parseBool");
+const { resolveDataPath } = require("./lib/paths");
 const envPath = path.join(__dirname, "..", ".env");
 const platformPort = process.env.PORT;
 const platformNodeEnv = process.env.NODE_ENV;
@@ -10,10 +11,11 @@ if (platformNodeEnv) process.env.NODE_ENV = platformNodeEnv;
 const schema = z.object({
   PORT: z.coerce.number().optional(),
   HOST: z.string().default("0.0.0.0"),
+  DATA_DIR: z.string().optional(),
   APP_SECRET: z.string().min(16).default("change-me-in-production-key"),
-  DB_PATH: z.string().default("./data/app.db"),
-  STORAGE_PATH: z.string().default("./storage/emails"),
-  EXPORT_PATH: z.string().default("./exports"),
+  DB_PATH: z.string().optional(),
+  STORAGE_PATH: z.string().optional(),
+  EXPORT_PATH: z.string().optional(),
   LEGACY_BACKUP_PATH: z.string().default("./backup"),
   MAX_MESSAGE_MB: z.coerce.number().default(50),
   JOB_CONCURRENCY: z.coerce.number().default(1),
@@ -30,14 +32,30 @@ if (!parsed.success) {
   process.exit(1);
 }
 const root = path.join(__dirname, "..");
+const isProduction = parsed.data.NODE_ENV === "production";
+const isHosted = Boolean(platformPort) || isProduction;
+function getDataRoot() {
+  if (parsed.data.DATA_DIR) {
+    return path.isAbsolute(parsed.data.DATA_DIR)
+      ? parsed.data.DATA_DIR
+      : path.resolve(root, parsed.data.DATA_DIR);
+  }
+  if (isHosted) return path.resolve(root, "..", "mailvault-data");
+  return null;
+}
+const dataRoot = getDataRoot();
+const pathOpts = { root, dataRoot };
 const config = {
   port: parsed.data.PORT || 3847,
   host: parsed.data.HOST,
+  dataRoot,
   appSecret: parsed.data.APP_SECRET,
-  dbPath: path.resolve(root, parsed.data.DB_PATH),
-  storagePath: path.resolve(root, parsed.data.STORAGE_PATH),
-  exportPath: path.resolve(root, parsed.data.EXPORT_PATH),
-  legacyBackupPath: path.resolve(root, parsed.data.LEGACY_BACKUP_PATH),
+  dbPath: resolveDataPath({ ...pathOpts, setting: parsed.data.DB_PATH, defaultRel: "./data/app.db", leaf: "app.db" }),
+  storagePath: resolveDataPath({ ...pathOpts, setting: parsed.data.STORAGE_PATH, defaultRel: "./storage/emails", leaf: "emails" }),
+  exportPath: resolveDataPath({ ...pathOpts, setting: parsed.data.EXPORT_PATH, defaultRel: "./exports", leaf: "exports" }),
+  legacyBackupPath: path.isAbsolute(parsed.data.LEGACY_BACKUP_PATH)
+    ? parsed.data.LEGACY_BACKUP_PATH
+    : path.resolve(root, parsed.data.LEGACY_BACKUP_PATH),
   maxMessageBytes: parsed.data.MAX_MESSAGE_MB * 1024 * 1024,
   jobConcurrency: parsed.data.JOB_CONCURRENCY,
   exportRetentionDays: parsed.data.EXPORT_RETENTION_DAYS,
@@ -47,6 +65,7 @@ const config = {
     ? false
     : parsed.data.TRUST_PROXY === "true" ? true : Number(parsed.data.TRUST_PROXY || 1),
   isProduction: parsed.data.NODE_ENV === "production",
+  isHosted,
   adminPassword: parsed.data.ADMIN_PASSWORD,
   root,
 };

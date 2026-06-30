@@ -59,6 +59,44 @@ On Hostinger or any reverse-proxy host, keep `TRUST_PROXY=1` (default). If IMAP 
 
 If you use a `.env` file on the server, remove `PORT=3847` from it so Hostinger's assigned port is used.
 
+### Data persistence (important)
+
+Hostinger redeploys replace the `nodejs/` app folder. By default, accounts, emails, and exports are stored in a **persistent folder outside the app**:
+
+```
+/home/you/domains/your-site.com/mailvault-data/
+  app.db
+  emails/
+  exports/
+```
+
+This is used automatically when Hostinger injects `PORT` (or when `NODE_ENV=production`).
+
+To use a custom location, set in hPanel:
+
+```env
+DATA_DIR=/home/u871337011/domains/your-site.com/mailvault-data
+```
+
+Or set absolute paths:
+
+```env
+DB_PATH=/home/u871337011/domains/your-site.com/mailvault-data/app.db
+STORAGE_PATH=/home/u871337011/domains/your-site.com/mailvault-data/emails
+EXPORT_PATH=/home/u871337011/domains/your-site.com/mailvault-data/exports
+```
+
+**Keep `APP_SECRET` the same across redeploys** — if it changes, saved account passwords cannot be decrypted.
+
+If you already had data inside `nodejs/data/` before this fix, move it once:
+
+```bash
+mkdir -p ../mailvault-data
+mv data/app.db ../mailvault-data/
+mv storage/emails ../mailvault-data/emails
+mv exports ../mailvault-data/exports
+```
+
 ## Run
 
 ```powershell

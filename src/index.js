@@ -32,6 +32,9 @@ function startListening(app) {
 async function main() {
   console.log("[startup] Ensuring data directories...");
   ensureAppDirs();
+  console.log("[startup] Data root:", config.dataRoot || config.dbPath);
+  console.log("[startup] Database:", config.dbPath);
+  console.log("[startup] Storage:", config.storagePath);
   console.log("[startup] Initializing database...");
   await initDb();
   console.log("[startup] Creating Express app...");
