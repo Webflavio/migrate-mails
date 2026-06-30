@@ -13,7 +13,7 @@ Node.js web app for backing up, browsing, exporting, and migrating IMAP email ac
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 18+ (tested on 18.20.x; Hostinger shared hosting)
 - npm
 
 ## Setup
