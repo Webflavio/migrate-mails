@@ -7,6 +7,8 @@ const jobsRepo = require("../repos/jobs");
 const { testConnection } = require("../lib/imap");
 const { parseBool } = require("../lib/parseBool");
 const { scanAccountFolders } = require("../services/backupScan");
+const maintenance = require("../services/maintenance");
+const { getAccountStorageSize, formatBytes } = require("../lib/storage");
 const router = express.Router();
 const accountSchema = z.object({
   label: z.string().min(1).max(120),
@@ -35,13 +37,17 @@ router.get("/:id", (req, res) => {
   if (!account) return res.status(404).render("pages/error", { title: "Not Found", message: "Account not found." });
   const folders = foldersRepo.listFolders(account.id);
   const runs = backupRunsRepo.listRuns(account.id, 10);
+  const backupStats = maintenance.getAccountBackupStats(account.id);
+  backupStats.storageBytes = getAccountStorageSize(account.id);
   let notice = null;
   let error = null;
   if (req.query.test === "ok") notice = "Connection successful.";
   else if (req.query.test === "fail") error = req.query.msg || "Connection failed.";
   else if (req.query.backup === "queued") notice = "Backup job queued.";
   else if (req.query.index === "queued") notice = "Legacy index job queued.";
-  res.render("pages/accounts/show", { title: account.label, account, folders, runs, notice, error });
+  else if (req.query.notice) notice = req.query.notice;
+  else if (req.query.error) error = req.query.error;
+  res.render("pages/accounts/show", { title: account.label, account, folders, runs, backupStats, notice, error });
 });
 router.get("/:id/edit", (req, res) => {
   const account = accountsRepo.getAccount(Number(req.params.id));
@@ -58,7 +64,11 @@ router.post("/:id", (req, res) => {
   res.redirect(`/accounts/${id}`);
 });
 router.post("/:id/delete", (req, res) => {
-  accountsRepo.deleteAccount(Number(req.params.id));
+  const accountId = Number(req.params.id);
+  try {
+    maintenance.deleteAccountBackupData(accountId);
+  } catch (_) {}
+  accountsRepo.deleteAccount(accountId);
   res.redirect("/accounts");
 });
 router.post("/:id/test", async (req, res) => {
@@ -125,5 +135,22 @@ router.post("/:id/folders/:folderId/toggle", (req, res) => {
   const folder = foldersRepo.getFolder(Number(req.params.folderId));
   if (folder) foldersRepo.setIncluded(folder.id, req.body.included === "1" ? 1 : 0);
   res.redirect(`/accounts/${req.params.id}`);
+});
+router.post("/:id/delete-backup", (req, res) => {
+  try {
+    const accountId = Number(req.params.id);
+    const result = maintenance.deleteAccountBackupData(accountId);
+    res.redirect(`/accounts/${accountId}?notice=${encodeURIComponent(`Deleted ${result.deletedMessages} backed-up message(s). Account kept.`)}`);
+  } catch (err) {
+    res.redirect(`/accounts/${req.params.id}?error=${encodeURIComponent(err.message)}`);
+  }
+});
+router.post("/:id/folders/:folderId/clear", (req, res) => {
+  try {
+    const result = maintenance.deleteFolderBackupData(Number(req.params.folderId));
+    res.redirect(`/accounts/${req.params.id}?notice=${encodeURIComponent(`Cleared ${result.deletedMessages} message(s) from folder.`)}`);
+  } catch (err) {
+    res.redirect(`/accounts/${req.params.id}?error=${encodeURIComponent(err.message)}`);
+  }
 });
 module.exports = router;

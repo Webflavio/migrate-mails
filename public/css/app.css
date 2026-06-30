@@ -343,6 +343,21 @@ input:focus, select:focus, textarea:focus {
 }
 .row-active { background: rgba(123,104,238,.06); }
 .backup-wizard label input[type="checkbox"] { width: auto; }
+.danger-zone { border-color: rgba(229,72,77,.25); }
+.danger-zone h3 { color: var(--cu-red); }
+.maintenance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.maintenance-grid form {
+  background: #FAFBFC;
+  border: 1px solid var(--cu-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.maintenance-grid p { margin: 0 0 8px; }
+.muted-sm { color: var(--cu-text-secondary); font-size: 13px; margin-bottom: 12px !important; }
 .filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .section-header h3 { margin: 0; }
@@ -421,7 +436,7 @@ input:focus, select:focus, textarea:focus {
   .sidebar-top { border-bottom: 1px solid rgba(255,255,255,.08); padding-bottom: 12px; margin-bottom: 12px; }
 }
 @media (max-width: 768px) {
-  .grid-4, .grid-2, .grid-3, .filters, .backup-summary { grid-template-columns: 1fr 1fr; }
+  .grid-4, .grid-2, .grid-3, .filters, .backup-summary, .maintenance-grid { grid-template-columns: 1fr 1fr; }
   .hero-banner { flex-direction: column; align-items: flex-start; padding: 22px 20px; }
   .hero-banner h2 { font-size: 20px; }
   .page-actions { width: 100%; }
@@ -442,4 +457,5 @@ input:focus, select:focus, textarea:focus {
   .stat-card { padding: 16px; }
   .stat-icon { width: 40px; height: 40px; font-size: 18px; }
   .hero-banner .page-actions { flex-direction: column; }
-  .hero-banner .btn 
+  .hero-banner .btn { width: 100%; }
+}

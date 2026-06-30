@@ -1,13 +1,46 @@
 <%- include('../../partials/header', { title, active: 'backups' }) %>
-<div class="card">
+<% if (notice) { %><div class="alert ok"><%= notice %></div><% } %>
+<% if (error) { %><div class="alert error"><%= error %></div><% } %>
+<div class="card" style="margin-bottom:18px">
+  <div class="section-header">
+    <h3>Manage Account Backups</h3>
+  </div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Account</th><th>Status</th><th>Folders</th><th>Messages</th><th>New</th><th>Errors</th><th>Started</th><th>Finished</th></tr></thead>
+      <thead><tr><th>Account</th><th>Messages</th><th>Folders</th><th>Actions</th></tr></thead>
       <tbody>
-        <% if (!runs.length) { %><tr><td colspan="8" class="empty">No backup runs yet.</td></tr><% } %>
+        <% if (!accounts.length) { %><tr><td colspan="4" class="empty">No accounts yet.</td></tr><% } %>
+        <% accounts.forEach(function(account){ %>
+        <tr>
+          <td><a href="/accounts/<%= account.id %>"><%= account.label %></a></td>
+          <td><%= (account.message_count || 0).toLocaleString() %></td>
+          <td><%= account.folder_count || 0 %></td>
+          <td>
+            <div class="btn-row" style="margin:0">
+              <a class="btn secondary" href="/accounts/<%= account.id %>/backup">Backup</a>
+              <% if (account.message_count > 0) { %>
+              <form method="post" action="/backups/account/<%= account.id %>/delete-data" onsubmit="return confirm('Delete ALL backed-up emails for <%= account.label %>? The account will be kept.')">
+                <button class="btn danger">Delete Backup</button>
+              </form>
+              <% } %>
+            </div>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="card">
+  <h3>Backup Run History</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Account</th><th>Status</th><th>Folders</th><th>Messages</th><th>New</th><th>Errors</th><th>Started</th><th>Finished</th><th></th></tr></thead>
+      <tbody>
+        <% if (!runs.length) { %><tr><td colspan="9" class="empty">No backup runs yet.</td></tr><% } %>
         <% runs.forEach(function(run){ %>
         <tr>
-          <td><%= run.account_label %></td>
+          <td><a href="/accounts/<%= run.account_id %>"><%= run.account_label %></a></td>
           <td><span class="badge <%= statusClass(run.status) %>"><%= run.status %></span></td>
           <td><%= run.total_folders %></td>
           <td><%= run.total_messages %></td>
@@ -15,6 +48,11 @@
           <td><%= run.error_count %></td>
           <td><%= formatDate(run.started_at) %></td>
           <td><%= formatDate(run.finished_at) %></td>
+          <td>
+            <form method="post" action="/backups/runs/<%= run.id %>/delete" onsubmit="return confirm('Delete this run record? Emails are not removed.')">
+              <button class="btn secondary" style="padding:6px 10px;font-size:12px">Delete Log</button>
+            </form>
+          </td>
         </tr>
         <% }) %>
       </tbody>

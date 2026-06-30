@@ -23,11 +23,29 @@ function updateRun(id, patch) {
 }
 function listRuns(accountId, limit) {
   if (accountId) {
-    return getDb().prepare("SELECT * FROM backup_runs WHERE account_id = ? ORDER BY id DESC LIMIT ?").all(accountId, limit || 20);
+    return getDb().prepare(`
+      SELECT r.*, a.label AS account_label FROM backup_runs r
+      JOIN accounts a ON a.id = r.account_id
+      WHERE r.account_id = ? ORDER BY r.id DESC LIMIT ?
+    `).all(accountId, limit || 20);
   }
   return getDb().prepare(`
     SELECT r.*, a.label AS account_label FROM backup_runs r
     JOIN accounts a ON a.id = r.account_id ORDER BY r.id DESC LIMIT ?
   `).all(limit || 20);
 }
-module.exports = { createRun, getRun, updateRun, listRuns };
+function deleteRun(id) {
+  return getDb().prepare("DELETE FROM backup_runs WHERE id = ?").run(id);
+}
+function deleteByAccount(accountId) {
+  return getDb().prepare("DELETE FROM backup_runs WHERE account_id = ?").run(accountId);
+}
+function deleteOlderThan(days) {
+  const info = getDb().prepare(`
+    DELETE FROM backup_runs
+    WHERE finished_at IS NOT NULL
+      AND datetime(finished_at) < datetime('now', '-' || ? || ' days')
+  `).run(days);
+  return info.changes;
+}
+module.exports = { createRun, getRun, updateRun, listRuns, deleteRun, deleteByAccount, deleteOlderThan };

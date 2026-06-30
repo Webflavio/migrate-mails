@@ -23,6 +23,29 @@ function readRawMessage(relative) {
 function deleteIfExists(filePath) {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
+function getAccountStorageSize(accountId) {
+  const dir = path.join(config.storagePath, String(accountId));
+  if (!fs.existsSync(dir)) return 0;
+  let total = 0;
+  function walk(current) {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else total += fs.statSync(full).size;
+    }
+  }
+  walk(dir);
+  return total;
+}
+function getExportSize() {
+  if (!fs.existsSync(config.exportPath)) return 0;
+  let total = 0;
+  for (const file of fs.readdirSync(config.exportPath)) {
+    const full = path.join(config.exportPath, file);
+    if (fs.statSync(full).isFile()) total += fs.statSync(full).size;
+  }
+  return total;
+}
 function getStorageSize() {
   let total = 0;
   function walk(dir) {
@@ -42,4 +65,4 @@ function formatBytes(bytes) {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
-module.exports = { ensureDir, messagePath, relativePath, saveRawMessage, readRawMessage, deleteIfExists, getStorageSize, formatBytes };
+module.exports = { ensureDir, messagePath, relativePath, saveRawMessage, readRawMessage, deleteIfExists, getStorageSize, getAccountStorageSize, getExportSize, formatBytes };

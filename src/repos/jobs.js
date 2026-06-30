@@ -56,4 +56,22 @@ function cancelJob(id) {
   if (!job || !["pending", "running"].includes(job.status)) return null;
   return updateJob(id, { status: "cancelled", finished_at: new Date().toISOString() });
 }
-module.exports = { createJob, getJob, listJobs, updateJob, appendLog, getPendingJobs, countByStatus, isCancelled, cancelJob };
+function deleteJob(id) {
+  return getDb().prepare("DELETE FROM jobs WHERE id = ?").run(id);
+}
+function deleteByStatuses(statuses) {
+  if (!statuses.length) return 0;
+  const placeholders = statuses.map(() => "?").join(",");
+  const info = getDb().prepare(`DELETE FROM jobs WHERE status IN (${placeholders})`).run(...statuses);
+  return info.changes;
+}
+function deleteOlderThan(days) {
+  const info = getDb().prepare(`
+    DELETE FROM jobs
+    WHERE status IN ('completed', 'failed', 'cancelled')
+      AND finished_at IS NOT NULL
+      AND datetime(finished_at) < datetime('now', '-' || ? || ' days')
+  `).run(days);
+  return info.changes;
+}
+module.exports = { createJob, getJob, listJobs, updateJob, appendLog, getPendingJobs, countByStatus, isCancelled, cancelJob, deleteJob, deleteByStatuses, deleteOlderThan };

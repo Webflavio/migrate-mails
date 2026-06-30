@@ -1,20 +1,22 @@
 const { ImapFlow } = require("imapflow");
 const config = require("../config");
+const { getRuntimeSettings } = require("./runtimeConfig");
 function buildTlsOptions(account) {
   const tls = { servername: account.imap_host };
   if (config.imapTlsInsecure) tls.rejectUnauthorized = false;
   return tls;
 }
 function createClient(account, password) {
+  const runtime = getRuntimeSettings();
   return new ImapFlow({
     host: account.imap_host,
     port: account.imap_port,
     secure: account.imap_secure === 1,
     auth: { user: account.username, pass: password },
     logger: false,
-    socketTimeout: config.imapTimeoutMs,
-    greetingTimeout: config.imapTimeoutMs,
-    connectionTimeout: config.imapTimeoutMs,
+    socketTimeout: runtime.imapTimeoutMs,
+    greetingTimeout: runtime.imapTimeoutMs,
+    connectionTimeout: runtime.imapTimeoutMs,
     tls: buildTlsOptions(account),
   });
 }

@@ -6,6 +6,7 @@ const { formatBytes } = require("../lib/formatBytes");
 const { saveRawMessage } = require("../lib/storage");
 const { uniqueName } = require("../lib/safeName");
 const config = require("../config");
+const { getRuntimeSettings } = require("../lib/runtimeConfig");
 const accountsRepo = require("../repos/accounts");
 const foldersRepo = require("../repos/folders");
 const messagesRepo = require("../repos/messages");
@@ -29,6 +30,7 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
   const log = createLogger(jobId, jobUpdate);
   const folderFilter = options && options.folderNames && options.folderNames.length ? options.folderNames : null;
   const incremental = !options || options.incremental !== false;
+  const runtime = getRuntimeSettings();
   const run = backupRunsRepo.createRun(accountId);
   let totalMessages = 0;
   let newMessages = 0;
@@ -74,7 +76,7 @@ async function runBackup(accountId, jobUpdate, jobId, options) {
             count += 1;
             const buffer = msg.source;
             if (!buffer) continue;
-            if (buffer.length > config.maxMessageBytes) {
+            if (buffer.length > runtime.maxMessageBytes) {
               errorCount += 1;
               errors.push(`Skipped oversized message in ${remote.name}`);
               log(`Skipped oversized message UID ${msg.uid} in ${remote.name}`);

@@ -7,7 +7,11 @@
     <p style="color:var(--muted)"><%= account.username %> · <%= account.imap_host %>:<%= account.imap_port %></p>
     <p>Status: <span class="badge <%= statusClass(account.status) %>"><%= account.status %></span></p>
     <p>Last backup: <%= formatDate(account.last_backup_at) %></p>
-    <div class="btn-row">
+    <div class="backup-summary" style="margin-top:14px">
+      <div class="stat-pill"><span>Backed up</span><strong><%= (backupStats.messages || 0).toLocaleString() %></strong></div>
+      <div class="stat-pill"><span>Storage</span><strong><%= formatBytes(backupStats.storageBytes || backupStats.bytes || 0) %></strong></div>
+    </div>
+    <div class="btn-row" style="margin-top:16px">
       <form method="post" action="/accounts/<%= account.id %>/test"><button class="btn secondary">Test Connection</button></form>
       <a class="btn" href="/accounts/<%= account.id %>/backup">Run Backup</a>
       <form method="post" action="/accounts/<%= account.id %>/index-legacy"><button class="btn secondary">Index Legacy Backup</button></form>
@@ -39,7 +43,7 @@
   <h3>Folders</h3>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Remote Name</th><th>Backed Up</th><th>Included</th><th>Last Synced</th><th></th></tr></thead>
+      <thead><tr><th>Remote Name</th><th>Backed Up</th><th>Included</th><th>Last Synced</th><th>Actions</th></tr></thead>
       <tbody>
         <% if (!folders.length) { %><tr><td colspan="5" class="empty">No folders yet. Run a backup or index legacy data.</td></tr><% } %>
         <% folders.forEach(function(folder) { %>
@@ -49,10 +53,17 @@
           <td><%= folder.included ? 'Yes' : 'No' %></td>
           <td><%= formatDate(folder.last_synced_at) %></td>
           <td>
-            <form method="post" action="/accounts/<%= account.id %>/folders/<%= folder.id %>/toggle">
-              <input type="hidden" name="included" value="<%= folder.included ? '0' : '1' %>">
-              <button class="btn secondary"><%= folder.included ? 'Exclude' : 'Include' %></button>
-            </form>
+            <div class="btn-row" style="margin:0">
+              <form method="post" action="/accounts/<%= account.id %>/folders/<%= folder.id %>/toggle">
+                <input type="hidden" name="included" value="<%= folder.included ? '0' : '1' %>">
+                <button class="btn secondary" style="padding:6px 10px;font-size:12px"><%= folder.included ? 'Exclude' : 'Include' %></button>
+              </form>
+              <% if (folder.backed_up_count > 0) { %>
+              <form method="post" action="/accounts/<%= account.id %>/folders/<%= folder.id %>/clear" onsubmit="return confirm('Delete all backed-up messages in <%= folder.remote_name %>?')">
+                <button class="btn danger" style="padding:6px 10px;font-size:12px">Clear</button>
+              </form>
+              <% } %>
+            </div>
           </td>
         </tr>
         <% }) %>
@@ -60,7 +71,19 @@
     </table>
   </div>
 </div>
-<form method="post" action="/accounts/<%= account.id %>/delete" style="margin-top:18px" onsubmit="return confirm('Delete this account and all indexed data?')">
-  <button class="btn danger">Delete Account</button>
-</form>
+<div class="card danger-zone" style="margin-top:18px">
+  <h3>Danger Zone</h3>
+  <div class="maintenance-grid">
+    <form method="post" action="/accounts/<%= account.id %>/delete-backup" onsubmit="return confirm('Delete ALL backed-up emails for this account? The IMAP account settings will be kept.')">
+      <p><strong>Delete backup data</strong></p>
+      <p class="muted-sm">Removes <%= (backupStats.messages || 0).toLocaleString() %> message(s) and files. Account stays.</p>
+      <button class="btn danger" <%= backupStats.messages ? '' : 'disabled' %>>Delete Backup</button>
+    </form>
+    <form method="post" action="/accounts/<%= account.id %>/delete" onsubmit="return confirm('Delete this account and ALL its data permanently?')">
+      <p><strong>Delete account</strong></p>
+      <p class="muted-sm">Removes account, backups, and credentials.</p>
+      <button class="btn danger">Delete Account</button>
+    </form>
+  </div>
+</div>
 <%- include('../../partials/footer') %>

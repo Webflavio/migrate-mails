@@ -1,10 +1,12 @@
 <%- include('../../partials/header', { title, active: 'jobs' }) %>
+<% if (notice) { %><div class="alert ok"><%= notice %></div><% } %>
+<% if (error) { %><div class="alert error"><%= error %></div><% } %>
 <div class="grid grid-2">
   <div class="card">
     <h3>Jobs</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Progress</th><th>Created</th></tr></thead>
+        <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Progress</th><th>Created</th><th></th></tr></thead>
         <tbody>
           <% jobs.forEach(function(job){ %>
           <tr class="<%= job.status === 'running' || job.status === 'pending' ? 'row-active' : '' %>">
@@ -13,6 +15,13 @@
             <td><span class="badge <%= statusClass(job.status) %>"><%= job.status %></span></td>
             <td><%= job.progress %>%</td>
             <td><%= formatDate(job.created_at) %></td>
+            <td>
+              <% if (job.status !== 'running') { %>
+              <form method="post" action="/jobs/<%= job.id %>/delete" onsubmit="return confirm('Delete this job?')">
+                <button class="btn secondary" style="padding:4px 8px;font-size:12px">Delete</button>
+              </form>
+              <% } %>
+            </td>
           </tr>
           <% }) %>
         </tbody>

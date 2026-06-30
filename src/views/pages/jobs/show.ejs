@@ -10,6 +10,10 @@
     <div class="btn-row" id="jobActions">
       <% if (job.status === 'pending' || job.status === 'running') { %>
       <button type="button" class="btn danger" id="btnCancelJob">Cancel Job</button>
+      <% } else { %>
+      <form method="post" action="/jobs/<%= job.id %>/delete" onsubmit="return confirm('Delete this job and its logs?')">
+        <button class="btn danger">Delete Job</button>
+      </form>
       <% } %>
       <% if (job.output_path && job.status === 'completed') { %><a class="btn" href="/export/download/<%= job.id %>">Download Output</a><% } %>
       <a class="btn secondary" href="/jobs">All Jobs</a>
