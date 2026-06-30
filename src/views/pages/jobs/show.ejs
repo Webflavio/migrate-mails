@@ -1,12 +1,70 @@
 <%- include('../../partials/header', { title, active: 'jobs' }) %>
-<div class="card">
-  <p><strong>Type:</strong> <%= job.type %></p>
-  <p><strong>Status:</strong> <span class="badge <%= statusClass(job.status) %>"><%= job.status %></span></p>
-  <p><strong>Progress:</strong> <%= job.progress %>%</p>
-  <p><strong>Started:</strong> <%= formatDate(job.started_at) %></p>
-  <p><strong>Finished:</strong> <%= formatDate(job.finished_at) %></p>
-  <% if (job.error_text) { %><div class="alert error"><%= job.error_text %></div><% } %>
-  <% if (job.result) { %><pre class="message-body"><%= JSON.stringify(job.result, null, 2) %></pre><% } %>
-  <% if (job.output_path && job.status === 'completed') { %><a class="btn" href="/export/download/<%= job.id %>">Download Output</a><% } %>
+<div class="grid grid-2">
+  <div class="card">
+    <p><strong>Type:</strong> <%= job.type %></p>
+    <p><strong>Status:</strong> <span class="badge <%= statusClass(job.status) %>" id="jobStatus"><%= job.status %></span></p>
+    <p><strong>Progress:</strong> <span id="jobProgress"><%= job.progress %></span>%</p>
+    <div class="progress-bar"><div class="progress-fill" id="jobProgressBar" style="width:<%= job.progress %>%"></div></div>
+    <p><strong>Started:</strong> <span id="jobStarted"><%= formatDate(job.started_at) %></span></p>
+    <p><strong>Finished:</strong> <span id="jobFinished"><%= formatDate(job.finished_at) %></span></p>
+    <div class="btn-row" id="jobActions">
+      <% if (job.status === 'pending' || job.status === 'running') { %>
+      <button type="button" class="btn danger" id="btnCancelJob">Cancel Job</button>
+      <% } %>
+      <% if (job.output_path && job.status === 'completed') { %><a class="btn" href="/export/download/<%= job.id %>">Download Output</a><% } %>
+      <a class="btn secondary" href="/jobs">All Jobs</a>
+    </div>
+    <div id="jobErrorWrap" style="<%= job.error_text ? '' : 'display:none' %>">
+      <div class="alert error" id="jobError"><%= job.error_text || '' %></div>
+    </div>
+    <pre class="message-body" id="jobResult" style="margin-top:16px;<%= job.result ? '' : 'display:none' %>"><%= job.result ? JSON.stringify(job.result, null, 2) : '' %></pre>
+  </div>
+  <div class="card">
+    <div class="section-header">
+      <h3>Live Log</h3>
+      <span class="badge run" id="liveBadge" style="<%= job.status === 'running' || job.status === 'pending' ? '' : 'display:none' %>">Live</span>
+    </div>
+    <pre class="log-view" id="jobLog"><%= job.log_text || 'Waiting for log output…' %></pre>
+  </div>
 </div>
+<script>
+(function() {
+  var jobId = <%= job.id %>;
+  var terminal = <%= JSON.stringify(['completed', 'failed', 'cancelled'].includes(job.status)) %>;
+  var logEl = document.getElementById("jobLog");
+  function poll() {
+    fetch("/jobs/" + jobId + "/live").then(function(r) { return r.json(); }).then(function(data) {
+      document.getElementById("jobStatus").textContent = data.status;
+      document.getElementById("jobStatus").className = "badge " + ({ completed: "ok", running: "run", pending: "run", failed: "bad", cancelled: "warn" }[data.status] || "neutral");
+      document.getElementById("jobProgress").textContent = data.progress;
+      document.getElementById("jobProgressBar").style.width = data.progress + "%";
+      if (data.log) logEl.textContent = data.log;
+      logEl.scrollTop = logEl.scrollHeight;
+      if (data.error) {
+        document.getElementById("jobErrorWrap").style.display = "block";
+        document.getElementById("jobError").textContent = data.error;
+      }
+      if (data.result) {
+        document.getElementById("jobResult").style.display = "block";
+        document.getElementById("jobResult").textContent = JSON.stringify(data.result, null, 2);
+      }
+      if (data.status === "completed" || data.status === "failed" || data.status === "cancelled") {
+        terminal = true;
+        document.getElementById("liveBadge").style.display = "none";
+        var cancelBtn = document.getElementById("btnCancelJob");
+        if (cancelBtn) cancelBtn.style.display = "none";
+      }
+    }).catch(function() {});
+  }
+  if (!terminal) setInterval(poll, 1500);
+  poll();
+  var cancelBtn = document.getElementById("btnCancelJob");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", function() {
+      if (!confirm("Cancel this job?")) return;
+      fetch("/jobs/" + jobId + "/cancel", { method: "POST" }).then(function() { poll(); });
+    });
+  }
+})();
+</script>
 <%- include('../../partials/footer') %>

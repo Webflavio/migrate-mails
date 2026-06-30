@@ -1,0 +1,144 @@
+<%- include('../../partials/header', { title, active: 'accounts' }) %>
+<div class="card backup-wizard">
+  <div class="section-header">
+    <div>
+      <h3>Backup — <%= account.label %></h3>
+      <p style="color:var(--muted);margin:6px 0 0;font-size:14px"><%= account.username %> · <%= account.imap_host %></p>
+    </div>
+    <a class="btn secondary" href="/accounts/<%= account.id %>">Back to Account</a>
+  </div>
+  <div id="scanStatus" class="alert ok" style="display:none"></div>
+  <div id="scanError" class="alert error" style="display:none"></div>
+  <div class="backup-summary" id="backupSummary">
+    <div class="stat-pill"><span>Messages</span><strong id="sumMessages">—</strong></div>
+    <div class="stat-pill"><span>Est. size</span><strong id="sumSize">—</strong></div>
+    <div class="stat-pill"><span>Selected</span><strong id="sumSelected">0</strong></div>
+    <div class="stat-pill"><span>Already backed up</span><strong id="sumBackedUp">—</strong></div>
+  </div>
+  <div class="btn-row" style="margin-bottom:16px">
+    <button type="button" class="btn secondary" id="btnRescan">Refresh Folders</button>
+    <button type="button" class="btn secondary" id="btnEstimate">Calculate Size</button>
+    <button type="button" class="btn secondary" id="btnSelectAll">Select All</button>
+    <button type="button" class="btn secondary" id="btnSelectNone">Select None</button>
+  </div>
+  <div class="table-wrap">
+    <table id="folderTable">
+      <thead>
+        <tr>
+          <th style="width:40px"><input type="checkbox" id="checkAll" checked></th>
+          <th>Folder</th>
+          <th>On Server</th>
+          <th>Backed Up</th>
+          <th>Est. Size</th>
+        </tr>
+      </thead>
+      <tbody id="folderBody">
+        <tr><td colspan="5" class="empty">Loading folders…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <form method="post" action="/accounts/<%= account.id %>/backup" id="backupForm" style="margin-top:20px">
+    <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-bottom:16px">
+      <input type="checkbox" name="incremental" value="true" checked style="width:auto">
+      Incremental backup (only new messages since last sync — faster)
+    </label>
+    <div class="btn-row">
+      <button type="submit" class="btn" id="btnStart" disabled>Start Backup</button>
+      <a class="btn secondary" href="/accounts/<%= account.id %>">Cancel</a>
+    </div>
+  </form>
+</div>
+<script>
+(function() {
+  var accountId = <%= account.id %>;
+  var folders = [];
+  var sized = false;
+  function fmt(n) { if (n >= 1073741824) return (n / 1073741824).toFixed(1) + " GB"; if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB"; if (n >= 1024) return (n / 1024).toFixed(1) + " KB"; return n + " B"; }
+  function selectedNames() {
+    return folders.filter(function(f) { return f.selected; }).map(function(f) { return f.name; });
+  }
+  function updateSummary() {
+    var sel = folders.filter(function(f) { return f.selected; });
+    var msgs = 0;
+    var bytes = 0;
+    var backed = 0;
+    sel.forEach(function(f) { msgs += f.messages || 0; bytes += f.totalSize || 0; backed += f.backedUp || 0; });
+    document.getElementById("sumSelected").textContent = sel.length;
+    document.getElementById("sumMessages").textContent = msgs.toLocaleString();
+    document.getElementById("sumSize").textContent = sized ? fmt(bytes) : (sel.length ? "Click Calculate Size" : "—");
+    document.getElementById("sumBackedUp").textContent = backed.toLocaleString();
+    document.getElementById("btnStart").disabled = !sel.length;
+  }
+  function renderFolders() {
+    var body = document.getElementById("folderBody");
+    if (!folders.length) {
+      body.innerHTML = '<tr><td colspan="5" class="empty">No folders found.</td></tr>';
+      updateSummary();
+      return;
+    }
+    body.innerHTML = folders.map(function(f, i) {
+      return '<tr><td><input type="checkbox" class="folder-check" data-idx="' + i + '" ' + (f.selected ? 'checked' : '') + '></td>' +
+        '<td>' + f.name + '</td><td>' + (f.messages || 0).toLocaleString() + '</td><td>' + (f.backedUp || 0).toLocaleString() + '</td>' +
+        '<td>' + (sized ? fmt(f.totalSize || 0) : "—") + '</td></tr>';
+    }).join("");
+    document.querySelectorAll(".folder-check").forEach(function(el) {
+      el.addEventListener("change", function() {
+        folders[Number(el.dataset.idx)].selected = el.checked;
+        updateSummary();
+      });
+    });
+    updateSummary();
+  }
+  function scan(includeSizes) {
+    document.getElementById("scanStatus").style.display = "block";
+    document.getElementById("scanStatus").textContent = includeSizes ? "Calculating sizes from server…" : "Scanning folders…";
+    document.getElementById("scanError").style.display = "none";
+    document.getElementById("btnStart").disabled = true;
+    var body = new URLSearchParams();
+    body.append("includeSizes", includeSizes ? "true" : "false");
+    selectedNames().forEach(function(name) { body.append("folders", name); });
+    fetch("/accounts/" + accountId + "/backup/scan", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById("scanStatus").style.display = "none";
+        if (!data.ok) throw new Error(data.error || "Scan failed");
+        var prev = {};
+        folders.forEach(function(f) { prev[f.name] = f.selected; });
+        folders = data.scan.folders.map(function(f) {
+          return { name: f.name, messages: f.messages, totalSize: f.totalSize, backedUp: f.backedUp, selected: prev[f.name] !== undefined ? prev[f.name] : true };
+        });
+        if (!Object.keys(prev).length) folders.forEach(function(f) { f.selected = true; });
+        sized = data.scan.sized;
+        renderFolders();
+      })
+      .catch(function(err) {
+        document.getElementById("scanStatus").style.display = "none";
+        document.getElementById("scanError").style.display = "block";
+        document.getElementById("scanError").textContent = err.message;
+        document.getElementById("btnStart").disabled = false;
+      });
+  }
+  document.getElementById("btnRescan").addEventListener("click", function() { scan(false); });
+  document.getElementById("btnEstimate").addEventListener("click", function() { scan(true); });
+  document.getElementById("btnSelectAll").addEventListener("click", function() { folders.forEach(function(f) { f.selected = true; }); renderFolders(); });
+  document.getElementById("btnSelectNone").addEventListener("click", function() { folders.forEach(function(f) { f.selected = false; }); renderFolders(); });
+  document.getElementById("checkAll").addEventListener("change", function(e) {
+    folders.forEach(function(f) { f.selected = e.target.checked; });
+    renderFolders();
+  });
+  document.getElementById("backupForm").addEventListener("submit", function(e) {
+    var sel = selectedNames();
+    if (!sel.length) { e.preventDefault(); return; }
+    document.querySelectorAll("#backupForm input[name='folders']").forEach(function(el) { el.remove(); });
+    sel.forEach(function(name) {
+      var input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "folders";
+      input.value = name;
+      e.target.appendChild(input);
+    });
+  });
+  scan(false);
+})();
+</script>
+<%- include('../../partials/footer') %>

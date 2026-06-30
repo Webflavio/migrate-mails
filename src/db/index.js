@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const initSqlJs = require("sql.js");
 const config = require("../config");
+const { runMigrations } = require("./migrate");
 const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
 let sqlDb;
 let SQL;
@@ -85,6 +86,7 @@ async function initDb() {
   }
   const db = wrapDb(sqlDb);
   db.exec(schema);
+  runMigrations(db);
   const defaults = [
     ["storage_path", config.storagePath],
     ["export_path", config.exportPath],

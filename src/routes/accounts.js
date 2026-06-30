@@ -6,6 +6,7 @@ const backupRunsRepo = require("../repos/backupRuns");
 const jobsRepo = require("../repos/jobs");
 const { testConnection } = require("../lib/imap");
 const { parseBool } = require("../lib/parseBool");
+const { scanAccountFolders } = require("../services/backupScan");
 const router = express.Router();
 const accountSchema = z.object({
   label: z.string().min(1).max(120),
@@ -76,10 +77,44 @@ router.post("/:id/test", async (req, res) => {
     res.redirect(`/accounts/${account.id}?test=fail&msg=${encodeURIComponent(message)}`);
   }
 });
+router.get("/:id/backup", (req, res) => {
+  const account = accountsRepo.getAccount(Number(req.params.id));
+  if (!account) return res.status(404).render("pages/error", { title: "Not Found", message: "Account not found." });
+  res.render("pages/accounts/backup", { title: `Backup — ${account.label}`, account });
+});
+router.post("/:id/backup/scan", async (req, res) => {
+  const accountId = Number(req.params.id);
+  const account = accountsRepo.getAccount(accountId);
+  if (!account) return res.status(404).json({ ok: false, error: "Account not found" });
+  try {
+    const folderNames = req.body.folders ? (Array.isArray(req.body.folders) ? req.body.folders : [req.body.folders]) : null;
+    const includeSizes = parseBool(req.body.includeSizes, false);
+    const scan = await scanAccountFolders(accountId, { includeSizes, folderNames });
+    res.json({ ok: true, scan });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
 router.post("/:id/backup", (req, res) => {
   const accountId = Number(req.params.id);
-  jobsRepo.createJob("backup", { accountId });
-  res.redirect(`/accounts/${accountId}?backup=queued`);
+  const folderNames = req.body.folders ? (Array.isArray(req.body.folders) ? req.body.folders : [req.body.folders]).filter(Boolean) : [];
+  const incremental = parseBool(req.body.incremental, true);
+  if (folderNames.length) {
+    const allFolders = foldersRepo.listFolders(accountId).map((f) => f.remote_name);
+    const unselected = allFolders.filter((name) => !folderNames.includes(name));
+    foldersRepo.setIncludedForAccount(accountId, folderNames, true);
+    if (unselected.length) foldersRepo.setIncludedForAccount(accountId, unselected, false);
+  }
+  const job = jobsRepo.createJob("backup", { accountId, folderNames, incremental });
+  if (req.headers.accept && req.headers.accept.includes("json")) {
+    return res.json({ ok: true, jobId: job.id });
+  }
+  res.redirect(`/jobs/${job.id}`);
+});
+router.post("/:id/backup/quick", (req, res) => {
+  const accountId = Number(req.params.id);
+  const job = jobsRepo.createJob("backup", { accountId, incremental: true });
+  res.redirect(`/jobs/${job.id}`);
 });
 router.post("/:id/index-legacy", (req, res) => {
   const accountId = Number(req.params.id);

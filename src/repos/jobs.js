@@ -28,11 +28,18 @@ function updateJob(id, patch) {
   if (patch.result !== undefined) { fields.push("result_json = @result_json"); params.result_json = JSON.stringify(patch.result); }
   if (patch.input !== undefined) { fields.push("input_json = @input_json"); params.input_json = JSON.stringify(patch.input); }
   if (patch.error_text !== undefined) { fields.push("error_text = @error_text"); params.error_text = patch.error_text; }
+  if (patch.log_text !== undefined) { fields.push("log_text = @log_text"); params.log_text = patch.log_text; }
   if (patch.started_at) { fields.push("started_at = @started_at"); params.started_at = patch.started_at; }
   if (patch.finished_at) { fields.push("finished_at = @finished_at"); params.finished_at = patch.finished_at; }
   if (!fields.length) return getJob(id);
   getDb().prepare(`UPDATE jobs SET ${fields.join(", ")} WHERE id = @id`).run(params);
   return getJob(id);
+}
+function appendLog(id, line) {
+  const ts = new Date().toISOString().slice(11, 19);
+  getDb().prepare(`
+    UPDATE jobs SET log_text = COALESCE(log_text, '') || ? || char(10) WHERE id = ?
+  `).run(`[${ts}] ${line}`, id);
 }
 function getPendingJobs() {
   return getDb().prepare("SELECT * FROM jobs WHERE status = 'pending' ORDER BY id ASC").all();
@@ -40,4 +47,13 @@ function getPendingJobs() {
 function countByStatus(status) {
   return getDb().prepare("SELECT COUNT(*) AS total FROM jobs WHERE status = ?").get(status).total;
 }
-module.exports = { createJob, getJob, listJobs, updateJob, getPendingJobs, countByStatus };
+function isCancelled(id) {
+  const job = getDb().prepare("SELECT status FROM jobs WHERE id = ?").get(id);
+  return job && job.status === "cancelled";
+}
+function cancelJob(id) {
+  const job = getJob(id);
+  if (!job || !["pending", "running"].includes(job.status)) return null;
+  return updateJob(id, { status: "cancelled", finished_at: new Date().toISOString() });
+}
+module.exports = { createJob, getJob, listJobs, updateJob, appendLog, getPendingJobs, countByStatus, isCancelled, cancelJob };

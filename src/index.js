@@ -3,6 +3,7 @@ const path = require("path");
 const rateLimit = require("express-rate-limit");
 const config = require("./config");
 const { initDb } = require("./db");
+const { formatBytes } = require("./lib/formatBytes");
 const { ensureAppDirs } = require("./lib/ensureDirs");
 const errorHandler = require("./middleware/errorHandler");
 const { startJobRunner } = require("./services/jobRunner");
@@ -54,9 +55,10 @@ async function main() {
     return new Date(value).toLocaleString();
   };
   app.locals.statusClass = (status) => {
-    const map = { connected: "ok", completed: "ok", running: "run", pending: "run", failed: "bad", error: "bad", completed_with_errors: "warn" };
+    const map = { connected: "ok", completed: "ok", running: "run", pending: "run", failed: "bad", error: "bad", completed_with_errors: "warn", cancelled: "warn" };
     return map[status] || "neutral";
   };
+  app.locals.formatBytes = formatBytes;
   app.use("/", authRoutes);
   app.all("/logout", (req, res) => {
     clearSessionCookie(res);

@@ -9,7 +9,7 @@
     <p>Last backup: <%= formatDate(account.last_backup_at) %></p>
     <div class="btn-row">
       <form method="post" action="/accounts/<%= account.id %>/test"><button class="btn secondary">Test Connection</button></form>
-      <form method="post" action="/accounts/<%= account.id %>/backup"><button class="btn">Run Backup</button></form>
+      <a class="btn" href="/accounts/<%= account.id %>/backup">Run Backup</a>
       <form method="post" action="/accounts/<%= account.id %>/index-legacy"><button class="btn secondary">Index Legacy Backup</button></form>
       <a class="btn secondary" href="/accounts/<%= account.id %>/edit">Edit</a>
       <a class="btn secondary" href="/browse/search?account=<%= account.id %>">Browse Emails</a>

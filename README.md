@@ -1,5 +1,5 @@
 # MailVault — Email Backup Manager
-
+w
 Node.js web app for backing up, browsing, exporting, and migrating IMAP email accounts with a multi-account dashboard backed by SQLite.
 
 ## Features

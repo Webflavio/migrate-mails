@@ -7,7 +7,7 @@
         <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Progress</th><th>Created</th></tr></thead>
         <tbody>
           <% jobs.forEach(function(job){ %>
-          <tr>
+          <tr class="<%= job.status === 'running' || job.status === 'pending' ? 'row-active' : '' %>">
             <td><a href="/jobs/<%= job.id %>"><%= job.id %></a></td>
             <td><%= job.type %></td>
             <td><span class="badge <%= statusClass(job.status) %>"><%= job.status %></span></td>

@@ -22,6 +22,18 @@ function listFolders(accountId) {
 function setIncluded(id, included) {
   getDb().prepare("UPDATE folders SET included = ? WHERE id = ?").run(included ? 1 : 0, id);
 }
+function setIncludedForAccount(accountId, remoteNames, included) {
+  const stmt = getDb().prepare("UPDATE folders SET included = ? WHERE account_id = ? AND remote_name = ?");
+  for (const name of remoteNames) stmt.run(included ? 1 : 0, accountId, name);
+}
+function getBackedUpCount(accountId, remoteName) {
+  const row = getDb().prepare(`
+    SELECT COUNT(*) AS total FROM messages m
+    JOIN folders f ON f.id = m.folder_id
+    WHERE f.account_id = ? AND f.remote_name = ?
+  `).get(accountId, remoteName);
+  return row ? row.total : 0;
+}
 function updateCounts(folderId, count) {
   getDb().prepare("UPDATE folders SET message_count = ?, last_synced_at = datetime('now') WHERE id = ?").run(count, folderId);
 }
@@ -30,4 +42,4 @@ function getOrCreateLegacyFolder(accountId, folderName) {
   if (existing) return existing;
   return upsertFolder(accountId, folderName, folderName, "/");
 }
-module.exports = { upsertFolder, getFolder, listFolders, setIncluded, updateCounts, getOrCreateLegacyFolder };
+module.exports = { upsertFolder, getFolder, listFolders, setIncluded, setIncludedForAccount, getBackedUpCount, updateCounts, getOrCreateLegacyFolder };

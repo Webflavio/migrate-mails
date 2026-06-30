@@ -104,10 +104,14 @@ function listForExport(accountId, folderIds, messageIds) {
   }
   return getDb().prepare("SELECT * FROM messages WHERE account_id = ?").all(accountId);
 }
+function getMaxUid(folderId) {
+  const row = getDb().prepare("SELECT MAX(uid) AS maxUid FROM messages WHERE folder_id = ?").get(folderId);
+  return row && row.maxUid ? row.maxUid : 0;
+}
 function totalCount() {
   return getDb().prepare("SELECT COUNT(*) AS total FROM messages").get().total;
 }
 module.exports = {
   insertMessage, insertBody, insertAttachment, getMessage, getAttachments, searchMessages,
-  countMessages, listByFolder, existsByMessageId, existsByHash, listForExport, totalCount,
+  countMessages, listByFolder, existsByMessageId, existsByHash, listForExport, getMaxUid, totalCount,
 };
